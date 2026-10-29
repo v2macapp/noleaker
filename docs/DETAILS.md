@@ -299,7 +299,7 @@ build. AMO signs each version only once, so rebuilding an existing tag reuses th
 already on the release. The Gecko ID `noleaker@lordversa.github.io` is permanent once signed.
 
 Installed Firefox copies check
-`https://github.com/LordVersA/noleaker/releases/latest/download/updates.json`, so a new release
+`https://github.com/v2macapp/noleaker/releases/latest/download/updates.json`, so a new release
 only updates them once it is the latest (not a draft or pre-release).
 
 To release, run `npm run release -- 0.3.0` on a clean `main`. It shows the release notes, then

@@ -2,9 +2,9 @@
 
 # noleaker: SOCKS5 proxy extension for Chrome and Firefox with leak protection
 
-[![Latest release](https://img.shields.io/github/v/release/LordVersA/noleaker)](https://github.com/LordVersA/noleaker/releases/latest)
-[![Build and release](https://github.com/LordVersA/noleaker/actions/workflows/release.yml/badge.svg)](https://github.com/LordVersA/noleaker/actions/workflows/release.yml)
-[![Downloads](https://img.shields.io/github/downloads/LordVersA/noleaker/total)](https://github.com/LordVersA/noleaker/releases)
+[![Latest release](https://img.shields.io/github/v/release/v2macapp/noleaker)](https://github.com/v2macapp/noleaker/releases/latest)
+[![Build and release](https://github.com/v2macapp/noleaker/actions/workflows/release.yml/badge.svg)](https://github.com/v2macapp/noleaker/actions/workflows/release.yml)
+[![Downloads](https://img.shields.io/github/downloads/v2macapp/noleaker/total)](https://github.com/v2macapp/noleaker/releases)
 ![Chrome 120+](https://img.shields.io/badge/Chrome-120%2B-4285F4?logo=googlechrome&logoColor=white)
 ![Firefox 140+](https://img.shields.io/badge/Firefox-140%2B-FF7139?logo=firefoxbrowser&logoColor=white)
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue)
@@ -52,7 +52,7 @@ Also included:
 **Chrome**
 
 1. Download `noleaker-chrome-<version>.zip` from the
-   [latest release](https://github.com/LordVersA/noleaker/releases/latest) and extract it.
+   [latest release](https://github.com/v2macapp/noleaker/releases/latest) and extract it.
 2. Open `chrome://extensions` and enable **Developer mode**.
 3. Click **Load unpacked** and choose the extracted folder.
 
@@ -61,7 +61,7 @@ Needs Chrome 120 or newer. Other Chromium browsers are untested.
 **Firefox**
 
 1. Open `noleaker-firefox-<version>.xpi` from the
-   [latest release](https://github.com/LordVersA/noleaker/releases/latest) in Firefox and click
+   [latest release](https://github.com/v2macapp/noleaker/releases/latest) in Firefox and click
    **Add**. It is signed by Mozilla (not listed on addons.mozilla.org) and updates itself.
 2. Recommended: `about:addons` → noleaker → **Run in Private Windows** → Allow. Without it,
    private windows are not protected and the icon shows a **PW!** badge.

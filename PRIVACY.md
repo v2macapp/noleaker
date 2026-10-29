@@ -15,7 +15,7 @@ beyond ordinary request metadata, including the IP visible to the recipient:
 | `github.com/bootmortis/iran-hosted-domains/releases/latest/download/domains.txt` (+ `.sha256`) | Opt-in compatibility-mode refresh of the routing list; disabled in strict mode.                    | GitHub     |
 
 The Firefox build adds one more, made by Firefox itself: about once a day it fetches
-`github.com/LordVersA/noleaker/releases/latest/download/updates.json` (the self-hosted add-on
+`github.com/v2macapp/noleaker/releases/latest/download/updates.json` (the self-hosted add-on
 update check) and, when there is a new version, downloads the signed `.xpi` from the same GitHub
 release.
 

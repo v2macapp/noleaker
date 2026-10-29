@@ -7,7 +7,7 @@
     "gecko": {
       "id": "noleaker@lordversa.github.io",
       "strict_min_version": "140.0",
-      "update_url": "https://github.com/LordVersA/noleaker/releases/latest/download/updates.json",
+      "update_url": "https://github.com/v2macapp/noleaker/releases/latest/download/updates.json",
       "data_collection_permissions": {
         "required": ["none"]
       }

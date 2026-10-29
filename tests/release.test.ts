@@ -55,7 +55,7 @@ describe('Firefox updates.json', () => {
       {
         version: '1.2.3',
         update_link:
-          'https://github.com/LordVersA/noleaker/releases/download/v1.2.3/noleaker-firefox-1.2.3.xpi',
+          'https://github.com/v2macapp/noleaker/releases/download/v1.2.3/noleaker-firefox-1.2.3.xpi',
         update_hash: 'sha256:d70214a04a2d194e4039403f1018689e7d3951ecc6fd2fdc39c9cc65907464b5',
         browser_specific_settings: { gecko: { strict_min_version: '140.0' } },
       },
