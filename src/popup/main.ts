@@ -3,7 +3,7 @@ import { COUNTRIES } from '../shared/countries';
 import { hostMatches } from '../shared/domains';
 import { effectiveExit } from '../shared/exit';
 import { sendMessage } from '../shared/messages';
-import { activeProfile } from '../shared/profiles';
+import { activeProfile, connected } from '../shared/profiles';
 import { showEnvNotes } from '../shared/env-notes';
 import { getState, onStateChanged, setState, updateState } from '../shared/storage';
 import { RULES_STATUS_KEY, type RulesStatus } from '../shared/rules-status';
@@ -20,6 +20,9 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const toggle = $<HTMLInputElement>('toggle');
 const select = $<HTMLSelectElement>('profile');
 const override = $<HTMLSelectElement>('override');
+const connection = $<HTMLSelectElement>('connection');
+/** The real system timezone: extension pages are never spoofed. */
+const SYSTEM_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const siteToggle = $<HTMLInputElement>('site-toggle');
 let currentHost: string | null = null;
@@ -111,8 +114,11 @@ function render(state: State): void {
     }),
   );
   select.disabled = state.profiles.length === 0;
-  toggle.disabled = !profile;
-  toggle.checked = state.enabled && !!profile;
+  const system = state.connection === 'system';
+  connection.value = state.connection;
+  $('profile-row').hidden = system;
+  toggle.disabled = !system && !profile;
+  toggle.checked = connected(state);
   const on = toggle.checked;
   const summary = summarize(state, rulesStatus);
   document.body.dataset.level = summary.level;
@@ -121,21 +127,23 @@ function render(state: State): void {
   $('status').textContent = summary.label;
   $('power-sub').textContent = !on
     ? 'Proxy is disabled'
-    : state.protectionError
-      ? 'Browser controls could not be verified'
-      : state.killSwitchActive
-        ? state.routingMode === 'strict'
-          ? 'New browsing requests are blocked'
-          : 'Proxied requests blocked; direct exceptions remain'
-        : state.routingMode === 'strict'
-          ? 'Strict proxy routing enabled'
-          : 'Proxy routing enabled; direct exceptions apply';
+    : system
+      ? 'Following the system VPN exit'
+      : state.protectionError
+        ? 'Browser controls could not be verified'
+        : state.killSwitchActive
+          ? state.routingMode === 'strict'
+            ? 'New browsing requests are blocked'
+            : 'Proxied requests blocked; direct exceptions remain'
+          : state.routingMode === 'strict'
+            ? 'Strict proxy routing enabled'
+            : 'Proxy routing enabled; direct exceptions apply';
   $('hint').textContent = summary.reason;
 
   const exit = effectiveExit(state);
   const name = exit ? (COUNTRIES[exit.countryCode]?.name ?? exit.countryCode) : '';
   $('exit').textContent = exit
-    ? `${exit.ip ?? '?'}\n${name}${exit.overridden ? ' (manual)' : ''}\n${exit.timezone ?? 'unknown timezone'}`
+    ? `${exit.ip ?? '?'}\n${name}${exit.overridden ? ' (manual)' : ''}\n${exit.timezone ?? 'unknown timezone'}${exit.timezone && exit.timezone !== SYSTEM_TZ ? `\nSystem: ${SYSTEM_TZ} (spoofed)` : ''}`
     : state.killSwitchActive
       ? '—'
       : 'Detecting…';
@@ -160,6 +168,10 @@ function render(state: State): void {
 
 toggle.addEventListener('change', () => void setState({ enabled: toggle.checked }));
 select.addEventListener('change', () => void setState({ activeProfileId: select.value }));
+connection.addEventListener(
+  'change',
+  () => void setState({ connection: connection.value === 'system' ? 'system' : 'proxy' }),
+);
 override.addEventListener(
   'change',
   () => void setState({ countryOverride: override.value || null }),

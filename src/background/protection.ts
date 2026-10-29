@@ -68,7 +68,7 @@ async function applyProtection(): Promise<void> {
   }
 
   const prediction = chrome.privacy.network.networkPredictionEnabled;
-  if (plan.proxyOn) {
+  if (plan.on) {
     const previous = await prediction.get({});
     if (previous.value !== false || previous.levelOfControl !== 'controlled_by_this_extension')
       await prediction.set({ value: false });
@@ -89,11 +89,11 @@ async function applyProtection(): Promise<void> {
   await syncNetworkRules(state, plan);
   const rules = (await chrome.storage.local.get(RULES_STATUS_KEY))[RULES_STATUS_KEY] as
     RulesStatus | undefined;
-  if (plan.proxyOn && (!rules?.core.ok || (plan.headers && !rules.headers?.ok)))
+  if (plan.on && (!rules?.core.ok || (plan.headers && !rules.headers?.ok)))
     throw new Error('Required network rules could not be installed.');
-  if (plan.proxyOn) {
+  if (plan.on) {
     // Settings can change while rules are installed; verify again immediately before release.
-    await verifyProxyControl();
+    if (plan.proxyOn) await verifyProxyControl();
     const predictionNow = await prediction.get({});
     if (
       predictionNow.value !== false ||

@@ -1,6 +1,6 @@
 import { effectiveExit } from './exit';
 import { checkOverrides } from './override-check';
-import { activeProfile } from './profiles';
+import { connected } from './profiles';
 import { rulesProblem, type RulesStatus } from './rules-status';
 import type { State } from './types';
 
@@ -17,15 +17,17 @@ export interface Summary {
 /** One-glance status for the popup, from stored state only (the leak test does the deep checks). */
 export function summarize(state: State, rules?: RulesStatus): Summary {
   if (!state.enabled) return { level: 'off', label: 'Off', reason: '' };
-  if (!activeProfile(state)) {
+  const system = state.connection === 'system';
+  if (!connected(state)) {
     return { level: 'bad', label: 'No proxy', reason: 'Add a SOCKS5 proxy in the options first.' };
   }
   if (state.killSwitchActive) {
     return {
       level: 'bad',
       label: 'Blocked',
-      reason:
-        state.routingMode === 'strict'
+      reason: system
+        ? 'Exit check failed (no network?). Spoofing is paused until it recovers.'
+        : state.routingMode === 'strict'
           ? 'Proxy unreachable. New browsing requests are blocked until it recovers.'
           : 'Proxy unreachable. Proxied destinations are blocked; compatibility direct exceptions remain direct.',
     };
@@ -68,6 +70,13 @@ export function summarize(state: State, rules?: RulesStatus): Summary {
     return { level: 'warn', label: 'Override', reason: overrideWarnings[0]!.message + more };
   }
   if (problem) return { level: 'warn', label: 'Rules', reason: problem.reason };
+  if (system)
+    return {
+      level: 'ok',
+      label: 'VPN exit',
+      reason:
+        'Spoofing follows the system VPN exit. noleaker cannot block traffic if the VPN drops.',
+    };
   return {
     level: state.routingMode === 'compatibility' ? 'warn' : 'ok',
     label: 'Proxy verified',

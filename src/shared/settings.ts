@@ -8,13 +8,14 @@ const FORMAT = 'noleaker-settings';
 /**
  * 2: `shields` replaced `advanced`. 3: `overrides` and `localeMode`. 4: `stealth`. 5: `flowUnlock`.
  * 6: `autoExitCheck`. 7: routing mode and list updates. 8: `flowUnlock` dropped (now the separate
- * noleaker-flow extension); it is ignored in older files. Older files are still read.
+ * noleaker-flow extension); it is ignored in older files. `connection` is optional (missing means proxy). Older files are still read.
  */
 const VERSION = 8;
 
 type Settings = Pick<
   State,
   | 'routingMode'
+  | 'connection'
   | 'listUpdates'
   | 'profiles'
   | 'activeProfileId'
@@ -32,6 +33,7 @@ type Settings = Pick<
 export function exportSettings(state: State): string {
   const settings: Settings = {
     routingMode: state.routingMode,
+    connection: state.connection,
     listUpdates: state.listUpdates,
     profiles: state.profiles,
     activeProfileId: state.activeProfileId,
@@ -117,6 +119,7 @@ export function parseSettings(text: string): ImportResult {
     ok: true,
     patch: {
       routingMode: data.routingMode === 'strict' ? 'strict' : 'compatibility',
+      connection: data.connection === 'system' ? 'system' : 'proxy',
       listUpdates: data.listUpdates === true,
       protectionError: null,
       controlsVerifiedAt: null,
@@ -134,7 +137,7 @@ export function parseSettings(text: string): ImportResult {
       stealth: data.stealth === true,
       autoExitCheck: data.autoExitCheck !== false,
       // The proxy cannot stay on without a profile.
-      ...(activeId ? {} : { enabled: false }),
+      ...(activeId || data.connection === 'system' ? {} : { enabled: false }),
     },
   };
 }

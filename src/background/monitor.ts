@@ -33,6 +33,7 @@ function enqueue(task: () => Promise<void>): void {
 
 /** Changes whenever the proxy configuration that detection depends on changes. */
 function configKey(state: State): string {
+  if (state.enabled && state.connection === 'system') return 'system';
   const p = activeProfile(state);
   return state.enabled && p ? `${p.username ?? ''}@${p.host}:${p.port}` : 'off';
 }
@@ -61,7 +62,11 @@ async function runCheck(force = false): Promise<ExitRefresh> {
     await setState({ killSwitchActive: true });
     await syncProxy();
     await syncProtection();
-    return { ok: false, changed: false, error: 'The proxy is unreachable.' };
+    return {
+      ok: false,
+      changed: false,
+      error: now.connection === 'system' ? 'The exit check failed.' : 'The proxy is unreachable.',
+    };
   }
 
   if (now.killSwitchActive) log('info', 'Proxy recovered; kill switch released');
@@ -156,6 +161,8 @@ export function onControlLoss(
     const state = await getState();
     if (
       state.enabled &&
+      // In system mode noleaker sets no proxy, so a proxy setting change is not a loss.
+      !(control === 'proxy' && state.connection === 'system') &&
       !(control === 'webrtc' && state.routingMode === 'compatibility' && !state.shields.webrtc)
     ) {
       if (state.protectionError !== reason || state.controlsVerifiedAt !== null)

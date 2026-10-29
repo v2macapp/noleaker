@@ -90,7 +90,14 @@ async function checkIp(state: State): Promise<CheckResult> {
   };
 }
 
-async function checkConfig(): Promise<CheckResult> {
+async function checkConfig(state: State): Promise<CheckResult> {
+  if (state.connection === 'system')
+    return {
+      id: 'config',
+      title: 'Proxy and DNS configuration',
+      status: 'skip',
+      detail: 'System VPN mode: noleaker sets no proxy. Check DNS leaks in the VPN app.',
+    };
   const proxy = await readProxyControl();
   const result = analyzeProxyConfig(proxy.mode, proxy.pac, proxy.levelOfControl);
   if (result.status !== 'pass') return result;
@@ -470,7 +477,7 @@ export async function runAll(state: State, onResult: (r: CheckResult) => void): 
   if (__BROWSER__ === 'firefox') (await checkBrowserEnv()).forEach(onResult);
   await Promise.all([
     guard('ip', 'Public IP matches the exit', () => checkIp(state)),
-    guard('config', 'Proxy and DNS configuration', checkConfig),
+    guard('config', 'Proxy and DNS configuration', () => checkConfig(state)),
     guard('webrtc', 'WebRTC', () => checkWebRtc(state)),
     guard('rules', 'Network rules installed', () => checkRules(state)),
     guard('quic', 'QUIC / HTTP3 fallback', checkQuic),

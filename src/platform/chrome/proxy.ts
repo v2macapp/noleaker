@@ -1,6 +1,6 @@
 import { iconView } from '../../shared/badge';
 import { generatePac } from './pac';
-import { activeProfile } from '../../shared/profiles';
+import { activeProfile, usesProxy } from '../../shared/profiles';
 import { getState } from '../../shared/storage';
 import { setGuard, setLocalGuard } from './guard';
 import { setStatusIcon } from '../../background/icons';
@@ -28,7 +28,7 @@ export async function syncProxy(): Promise<void> {
   const state = await getState();
   const profile = activeProfile(state);
 
-  if (!state.enabled || !profile) {
+  if (!usesProxy(state) || !profile) {
     await chrome.storage.session.remove(APPLIED_KEY);
     await setGuard(false);
     await setLocalGuard(false);

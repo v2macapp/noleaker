@@ -1,7 +1,7 @@
 import { BADGE_COLORS, iconView, type IconView } from '../../shared/badge';
 import { getEnv, PRIVATE_WARNING, type BrowserEnv } from '../../shared/browser-env';
 import type { State } from '../../shared/types';
-import { activeProfile } from '../../shared/profiles';
+import { activeProfile, usesProxy } from '../../shared/profiles';
 import { directLookup, NO_DIRECT, type DirectLookup } from '../../shared/route';
 import { getState } from '../../shared/storage';
 import { setStatusIcon } from '../../background/icons';
@@ -28,7 +28,7 @@ export async function syncProxy(): Promise<void> {
   const state = await getState();
   const profile = activeProfile(state);
 
-  if (!state.enabled || !profile) {
+  if (!usesProxy(state) || !profile) {
     setRouting({ enabled: false, profile: null, guarded: false, blocking: false });
     await chrome.storage.session.set({ [GUARD_KEY]: false });
     await setStatusIcon(iconView(state));

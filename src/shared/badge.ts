@@ -1,5 +1,5 @@
 import { COUNTRIES } from './countries';
-import { activeProfile } from './profiles';
+import { connected } from './profiles';
 import type { State } from './types';
 
 export type IconStatus = 'off' | 'on' | 'error';
@@ -23,7 +23,7 @@ export function iconView(state: State): IconView {
   if (!state.enabled) {
     return { status: 'off', badge: '', badgeColor: BADGE_COLORS.ok, title: 'noleaker: off' };
   }
-  if (!activeProfile(state)) {
+  if (!connected(state)) {
     return {
       status: 'error',
       badge: '!',
@@ -44,9 +44,11 @@ export function iconView(state: State): IconView {
       badge: '!',
       badgeColor: BADGE_COLORS.bad,
       title:
-        state.routingMode === 'strict'
-          ? 'noleaker: proxy unreachable, new browsing requests are blocked until it recovers'
-          : 'noleaker: proxy unreachable, proxied requests are blocked; direct exceptions remain',
+        state.connection === 'system'
+          ? 'noleaker: exit check failed, spoofing is paused'
+          : state.routingMode === 'strict'
+            ? 'noleaker: proxy unreachable, new browsing requests are blocked until it recovers'
+            : 'noleaker: proxy unreachable, proxied requests are blocked; direct exceptions remain',
     };
   }
   if (!state.controlsVerifiedAt || Date.now() - state.controlsVerifiedAt > 150_000) {

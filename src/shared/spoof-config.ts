@@ -1,7 +1,7 @@
 import { effectiveExit } from './exit';
 import { buildFingerprintConfig, type FingerprintConfig, NO_FINGERPRINT } from './fingerprint';
 import { resolveIdentity } from './identity';
-import { activeProfile } from './profiles';
+import { connected } from './profiles';
 import { SHIELD_DEFAULTS } from './shields';
 import type { ShieldToggles, State } from './types';
 
@@ -52,18 +52,18 @@ export const INACTIVE_CONFIG: SpoofConfig = {
 };
 
 /**
- * Key rule: spoof only while the proxy is on, reachable, and the exit is known.
+ * Key rule: spoof only while the proxy (or system VPN) is on, reachable, and the exit is known.
  * Otherwise a fake timezone could be paired with the real IP.
  */
 export function buildSpoofConfig(state: State): SpoofConfig {
   const exit = effectiveExit(state);
-  const ok = state.enabled && !!activeProfile(state) && !state.killSwitchActive;
+  const ok = connected(state) && !state.killSwitchActive;
   const identity = resolveIdentity(state);
   if (!ok || !exit || !identity.timezone) {
     return {
       ...INACTIVE_CONFIG,
       stealth: state.stealth,
-      strict: state.enabled && !!activeProfile(state) && state.routingMode === 'strict',
+      strict: connected(state) && state.routingMode === 'strict',
       shields: state.shields,
     };
   }

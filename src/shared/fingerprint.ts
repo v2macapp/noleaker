@@ -59,10 +59,9 @@ export const NO_FINGERPRINT: FingerprintConfig = {
 };
 
 export function buildFingerprintConfig(state: State): FingerprintConfig {
-  const profile = activeProfile(state);
-  if (!profile) return NO_FINGERPRINT;
+  const seed = state.connection === 'system' ? 'system' : activeProfile(state)?.id;
+  if (!seed) return NO_FINGERPRINT;
   const a = state.shields;
-  const seed = profile.id;
   return {
     seed,
     siteSeed: seed,

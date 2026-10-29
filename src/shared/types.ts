@@ -55,6 +55,11 @@ export type LocaleMode = 'english' | 'country';
 export interface State {
   schemaVersion: number;
   routingMode: 'strict' | 'compatibility';
+  /**
+   * `proxy`: noleaker routes the browser through the SOCKS5 profile. `system`: a system VPN/TUN
+   * already routes all traffic; noleaker sets no proxy and only detects the exit and spoofs to it.
+   */
+  connection: 'proxy' | 'system';
   listUpdates: boolean;
   /** Runtime verification; never exported. */
   protectionError: string | null;

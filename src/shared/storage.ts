@@ -18,6 +18,7 @@ export const SCHEMA_VERSION = 9;
 export const DEFAULT_STATE: State = {
   schemaVersion: SCHEMA_VERSION,
   routingMode: 'strict',
+  connection: 'proxy',
   listUpdates: false,
   protectionError: null,
   controlsVerifiedAt: null,
@@ -87,6 +88,7 @@ export function migrateState(raw: unknown): State {
         : stored.routingMode === 'compatibility' || Object.keys(stored).length > 0
           ? 'compatibility'
           : 'strict',
+    connection: stored.connection === 'system' ? 'system' : 'proxy',
     listUpdates: stored.listUpdates === true,
     protectionError: typeof stored.protectionError === 'string' ? stored.protectionError : null,
     controlsVerifiedAt:
@@ -117,7 +119,7 @@ export function migrateState(raw: unknown): State {
   if (!state.profiles.some((p) => p.id === state.activeProfileId)) {
     state.activeProfileId = state.profiles[0]?.id ?? null;
   }
-  if (!state.activeProfileId) state.enabled = false;
+  if (!state.activeProfileId && state.connection !== 'system') state.enabled = false;
   return state;
 }
 
