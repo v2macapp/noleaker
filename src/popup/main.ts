@@ -126,15 +126,19 @@ function render(state: State): void {
   $('tab-note').textContent = tabNote ? describeNote(tabNote) : '';
   $('status').textContent = summary.label;
   $('power-sub').textContent = !on
-    ? 'Proxy is disabled'
-    : system
-      ? 'Following the system VPN exit'
-      : state.protectionError
-        ? 'Browser controls could not be verified'
-        : state.killSwitchActive
-          ? state.routingMode === 'strict'
+    ? system
+      ? 'Protection is off'
+      : 'Proxy is disabled'
+    : state.protectionError
+      ? 'Browser controls could not be verified'
+      : state.killSwitchActive
+        ? system
+          ? 'Exit check failed; spoofing is paused'
+          : state.routingMode === 'strict'
             ? 'New browsing requests are blocked'
             : 'Proxied requests blocked; direct exceptions remain'
+        : system
+          ? 'Following the system VPN exit'
           : state.routingMode === 'strict'
             ? 'Strict proxy routing enabled'
             : 'Proxy routing enabled; direct exceptions apply';
@@ -143,7 +147,7 @@ function render(state: State): void {
   const exit = effectiveExit(state);
   const name = exit ? (COUNTRIES[exit.countryCode]?.name ?? exit.countryCode) : '';
   $('exit').textContent = exit
-    ? `${exit.ip ?? '?'}\n${name}${exit.overridden ? ' (manual)' : ''}\n${exit.timezone ?? 'unknown timezone'}${exit.timezone && exit.timezone !== SYSTEM_TZ ? `\nSystem: ${SYSTEM_TZ} (spoofed)` : ''}`
+    ? `${exit.ip ?? '?'}\n${name}${exit.overridden ? ' (manual)' : ''}\n${exit.timezone ?? 'unknown timezone'}${exit.timezone && exit.timezone !== SYSTEM_TZ ? `\nYour system: ${SYSTEM_TZ} (hidden from sites)` : ''}`
     : state.killSwitchActive
       ? '—'
       : 'Detecting…';

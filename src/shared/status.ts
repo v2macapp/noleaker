@@ -24,7 +24,7 @@ export function summarize(state: State, rules?: RulesStatus): Summary {
   if (state.killSwitchActive) {
     return {
       level: 'bad',
-      label: 'Blocked',
+      label: system ? 'Paused' : 'Blocked',
       reason: system
         ? 'Exit check failed (no network?). Spoofing is paused until it recovers.'
         : state.routingMode === 'strict'

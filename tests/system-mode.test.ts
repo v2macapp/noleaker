@@ -27,6 +27,7 @@ describe('system VPN/TUN mode', () => {
 
   it('pauses spoofing when the exit check fails', () => {
     expect(protectionPlan({ ...system, killSwitchActive: true }).config.active).toBe(false);
+    expect(summarize({ ...system, killSwitchActive: true }).label).toBe('Paused');
   });
 
   it('reports the VPN exit in the popup and badge', () => {
