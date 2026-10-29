@@ -75,7 +75,8 @@ async function runCheck(force = false): Promise<ExitRefresh> {
     ? { ip: now.detectedExit.ip, countryCode: now.detectedExit.countryCode }
     : undefined;
   const change = describeExitChange(previous ?? null, found);
-  const store = shouldStoreExit(now, force);
+  // System mode: a new exit means the VPN dropped or moved, so the identity must follow it.
+  const store = shouldStoreExit(now, force || now.connection === 'system');
   if (store) {
     if (change === 'country') {
       log('info', `Exit country changed: ${label(previous!)} -> ${label(found)}`);
