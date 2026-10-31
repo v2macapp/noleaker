@@ -14,7 +14,7 @@
 SOCKS5 proxy and stops the usual leaks: WebRTC, DNS, QUIC, timezone and language. Think of it as a
 FoxyProxy alternative that also makes the browser look like it is in the proxy's country.
 
-No account, no license key, no servers of our own.
+No account, no license key, no servers of our own. [Test your browser for leaks](https://v2macapp.github.io/noleaker/).
 
 <p align="center">
   <img src="docs/screenshots/popup.png" alt="noleaker popup: SOCKS5 proxy switched on, exit IP, country and timezone shown" width="270" />
