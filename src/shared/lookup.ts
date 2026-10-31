@@ -44,16 +44,19 @@ async function get(url: string): Promise<Response> {
 }
 
 /**
- * Detect the exit through the proxy: Cloudflare trace first, ipwho.is as fallback.
- * The trace has no timezone, so ipwho.is is also asked for it (best effort).
+ * Detect the exit: Cloudflare trace and ipwho.is, either one alone is enough.
+ * When they see different IPs a VPN is routing one of them outside the tunnel, usually Cloudflare
+ * (a direct rule is common), so ipwho.is wins.
+ * shortcut: nothing tells which side is really tunnelled, compare a third host if ipwho.is is the
+ * one sent direct.
  * Returns null when both lookups fail, which means the proxy is unreachable.
  */
 export async function detectExit(): Promise<ExitInfo | null> {
-  let base: { ip: string; countryCode: string; timezone?: string } | null = null;
+  let trace: ReturnType<typeof parseTrace> = null;
   try {
-    base = parseTrace(await (await get(TRACE_URL)).text());
+    trace = parseTrace(await (await get(TRACE_URL)).text());
   } catch {
-    // fall through to ipwho.is
+    // ipwho.is alone is enough
   }
   let who: ReturnType<typeof parseIpwho> = null;
   try {
@@ -61,8 +64,7 @@ export async function detectExit(): Promise<ExitInfo | null> {
   } catch {
     // no timezone from the lookup; the country table is the fallback
   }
-  if (!base) base = who;
-  if (!base) return null;
-  const timezone = who && who.ip === base.ip ? who.timezone : (base.timezone ?? '');
-  return { ip: base.ip, countryCode: base.countryCode, timezone, detectedAt: Date.now() };
+  if (who && who.ip !== trace?.ip) return { ...who, detectedAt: Date.now() };
+  if (!trace) return null;
+  return { ...trace, timezone: who?.timezone ?? '', detectedAt: Date.now() };
 }
