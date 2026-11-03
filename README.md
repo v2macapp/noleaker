@@ -13,6 +13,8 @@
 **noleaker** is a free, open-source browser extension for Chrome and Firefox (Manifest V3) that sends your browser through a
 SOCKS5 proxy and stops the usual leaks: WebRTC, DNS, QUIC, timezone and language. Think of it as a
 FoxyProxy alternative that also makes the browser look like it is in the proxy's country.
+Already on a system VPN or TUN app? Switch the connection to **System VPN / TUN** and noleaker
+matches the browser to the VPN's exit instead, without setting a proxy.
 
 No account, no license key, no servers of our own. [Test your browser for leaks](https://v2macapp.github.io/noleaker/).
 
@@ -36,6 +38,8 @@ No account, no license key, no servers of our own. [Test your browser for leaks]
 
 Also included:
 
+- **System VPN / TUN mode**: no browser proxy; timezone, language and geolocation follow the exit
+  seen through your VPN, and spoofing pauses if the exit check fails.
 - **Built-in leak test** that checks each item above and tells you which setting fixes a failure.
 - **Audit this tab**: see what the current site really reads from your browser.
 - **Per-site whitelist**, manual overrides (timezone, locale, coordinates) and settings import/export.
@@ -91,6 +95,8 @@ Needs Firefox 140 (ESR) or newer on desktop. Forks such as LibreWolf probably wo
 ## Limits
 
 - **Not a VPN.** Only browser traffic is covered, and the proxy operator sees where it goes.
+- **System VPN / TUN mode has no kill switch.** noleaker routes nothing there, so if the VPN drops,
+  traffic goes out directly. Use the VPN app's kill switch, and check DNS leaks in the VPN app.
 - **SOCKS5 username/password only in Firefox.** Chrome's proxy API cannot carry them, so Chrome
   needs a proxy without authentication.
 - **"Proxy verified" is not a guarantee of zero leaks.** It means the browser controls were applied
