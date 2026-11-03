@@ -34,7 +34,7 @@ const live = (over: Partial<State> = {}): State => ({
 describe.skipIf(
   !existsSync('dist/chrome/content/main.js') || !existsSync('dist/chrome/content/bridge.js'),
 )('built scripts: unguessable event names', () => {
-  function boot(order: 'bridge-first' | 'main-first', state: State) {
+  function boot(order: 'bridge-first' | 'main-first', state: State, hostname = 'news.example.com') {
     const target = new EventTarget();
     const seen: string[] = [];
     const config = buildSpoofConfig(state);
@@ -52,9 +52,9 @@ describe.skipIf(
       crypto: webcrypto,
       setTimeout: () => 0,
       location: {
-        hostname: 'news.example.com',
+        hostname,
         pathname: '/',
-        href: 'https://news.example.com/',
+        href: `https://${hostname}/`,
         ancestorOrigins: [],
       },
       navigator: {},
@@ -89,6 +89,12 @@ describe.skipIf(
     expect(env.run(hours)).toBe(12);
     await env.settled;
     expect(env.run('Intl.DateTimeFormat().resolvedOptions().timeZone')).toBe('Europe/Berlin');
+  });
+
+  it('leaves captcha frames untouched before configuration delivery', () => {
+    const env = boot('main-first', live(), 'challenges.cloudflare.com');
+    const real = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    expect(env.run('Intl.DateTimeFormat().resolvedOptions().timeZone')).toBe(real);
   });
 
   for (const order of ['bridge-first', 'main-first'] as const) {

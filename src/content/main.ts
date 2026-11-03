@@ -13,26 +13,33 @@ import { installWebRtc } from './webrtc';
 import { installWorkers } from './workers';
 import { ackName, HANDSHAKE_EVENT, randomName, type ConfigMessage, type Hello } from './events';
 import { INACTIVE_CONFIG, type SpoofConfig } from '../shared/spoof-config';
+import { isCaptchaPage } from '../shared/antibot';
 
 let live: SpoofConfig | null = null;
 let prelude: string | null = null;
-let pending = true;
+// Captcha frames get no startup state: the bridge exempts them only after an async storage read,
+// and a challenge that sees blocked workers or a timezone flipping from UTC fails and loops.
+// shortcut: in strict mode a captcha frame shows real values until the config lands (a few ms).
+const captcha = isCaptchaPage(location.hostname, location.pathname);
+let pending = !captcha;
 let workerConfig: SpoofConfig | null = null;
 
 const spoof = installSpoof(globalThis);
 const fingerprint = installFingerprint(globalThis);
-const geolocation = installGeolocation(globalThis, { pending: true });
+const geolocation = installGeolocation(globalThis, { pending });
 const fonts = installFonts(globalThis);
 const voices = installVoices(globalThis);
 const keyboard = installKeyboard(globalThis);
-const webrtc = installWebRtc(globalThis, true);
+const webrtc = installWebRtc(globalThis, pending);
 const audio = installAudio(globalThis);
 const rects = installRects(globalThis);
 // Until storage delivery completes, covered location/language APIs use public neutral values.
 // This also briefly applies on disabled/whitelisted pages; the first valid config restores them.
 const startup = { ...INACTIVE_CONFIG, active: true, timezone: 'UTC' };
-spoof.setConfig(startup);
-for (const shield of [fonts, voices, keyboard]) shield.setConfig(startup);
+if (!captcha) {
+  spoof.setConfig(startup);
+  for (const shield of [fonts, voices, keyboard]) shield.setConfig(startup);
+}
 const workers = installWorkers(globalThis, {
   config: () => workerConfig,
   pending: () => pending,
