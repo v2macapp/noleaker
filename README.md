@@ -1,6 +1,6 @@
-<p align="center"><img src="docs/brand/logo.jpg" alt="noleaker: SOCKS5 proxy extension for Chrome and Firefox with leak protection" width="520" /></p>
+<p align="center"><img src="docs/brand/logo.jpg" alt="noleaker: SOCKS5 proxy and VPN leak protection for Chrome and Firefox" width="520" /></p>
 
-# noleaker: SOCKS5 proxy extension for Chrome and Firefox with leak protection
+# noleaker: SOCKS5 proxy and VPN leak protection for Chrome and Firefox
 
 [![Latest release](https://img.shields.io/github/v/release/v2macapp/noleaker)](https://github.com/v2macapp/noleaker/releases/latest)
 [![Build and release](https://github.com/v2macapp/noleaker/actions/workflows/release.yml/badge.svg)](https://github.com/v2macapp/noleaker/actions/workflows/release.yml)
@@ -10,11 +10,14 @@
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue)](LICENSE)
 
-**noleaker** is a free, open-source browser extension for Chrome and Firefox (Manifest V3) that sends your browser through a
-SOCKS5 proxy and stops the usual leaks: WebRTC, DNS, QUIC, timezone and language. Think of it as a
-FoxyProxy alternative that also makes the browser look like it is in the proxy's country.
-Already on a system VPN or TUN app? Switch the connection to **System VPN / TUN** and noleaker
-matches the browser to the VPN's exit instead, without setting a proxy.
+**noleaker** is a free, open-source browser extension for Chrome and Firefox (Manifest V3) that
+makes your browser match its exit, whether that exit is a SOCKS5 proxy or a system VPN/TUN, and
+stops the usual leaks: WebRTC, DNS, QUIC, timezone and language.
+
+- **SOCKS5 proxy mode:** sends the browser through your proxy, with a kill switch. A FoxyProxy
+  alternative that also makes the browser look like it is in the proxy's country.
+- **System VPN / TUN mode:** for a VPN or TUN app that already carries your traffic. noleaker sets
+  no proxy and matches timezone, language and geolocation to the VPN's exit.
 
 No account, no license key, no servers of our own. [Test your browser for leaks](https://v2macapp.github.io/noleaker/).
 
@@ -26,20 +29,20 @@ No account, no license key, no servers of our own. [Test your browser for leaks]
 
 ## What it does
 
-| Leak                | How noleaker handles it                                           |
-| ------------------- | ----------------------------------------------------------------- |
-| **IP and DNS**      | All browser traffic and DNS lookups go through your SOCKS5 proxy. |
-| **WebRTC**          | Limited to proxied UDP, so pages cannot read your real IP.        |
-| **QUIC / HTTP3**    | Upgrades are prevented, so traffic stays on the proxy.            |
-| **Timezone**        | `Date` and `Intl` report the timezone of the proxy's country.     |
-| **Language**        | `navigator.language` and `Accept-Language` follow your choice.    |
-| **Geolocation**     | Reports a point in the exit country, not your real position.      |
-| **Proxy goes down** | Kill switch: requests are blocked instead of going out directly.  |
+| Leak                | How noleaker handles it                                                                                      |
+| ------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **IP and DNS**      | Proxy mode sends all browser traffic and DNS through your SOCKS5 proxy; VPN mode leaves routing to your VPN. |
+| **WebRTC**          | Limited to proxied UDP, so pages cannot read your real IP.                                                   |
+| **QUIC / HTTP3**    | Upgrades are prevented, so traffic stays on the proxy.                                                       |
+| **Timezone**        | `Date` and `Intl` report the timezone of the exit's country (proxy or VPN).                                  |
+| **Language**        | `navigator.language` and `Accept-Language` follow your choice.                                               |
+| **Geolocation**     | Reports a point in the exit country, not your real position.                                                 |
+| **Proxy goes down** | Kill switch (proxy mode): requests are blocked instead of going out directly.                                |
 
 Also included:
 
-- **System VPN / TUN mode**: no browser proxy; timezone, language and geolocation follow the exit
-  seen through your VPN, and spoofing pauses if the exit check fails.
+- **Spoofing pauses** in VPN mode if the exit check fails, so a dropped VPN does not leave the old
+  exit's timezone paired with your real IP.
 - **Built-in leak test** that checks each item above and tells you which setting fixes a failure.
 - **Audit this tab**: see what the current site really reads from your browser.
 - **Per-site whitelist**, manual overrides (timezone, locale, coordinates) and settings import/export.
@@ -74,8 +77,9 @@ Needs Firefox 140 (ESR) or newer on desktop. Forks such as LibreWolf probably wo
 
 ## Use
 
-1. Popup → **Manage proxies** → add your SOCKS5 host and port.
-2. Back in the popup, switch **Protection** on. The pill shows **Proxy verified**.
+1. **SOCKS5 proxy:** popup → **Manage proxies** → add your SOCKS5 host and port.
+   **System VPN / TUN:** connect your VPN app, then set **Connection** to **System VPN / TUN** in the popup.
+2. Switch **Protection** on. In proxy mode the pill shows **Proxy verified**.
 3. Click **Run leak test** to check IP, DNS, WebRTC, QUIC, timezone and language.
 
 ## Troubleshooting
@@ -94,7 +98,8 @@ Needs Firefox 140 (ESR) or newer on desktop. Forks such as LibreWolf probably wo
 
 ## Limits
 
-- **Not a VPN.** Only browser traffic is covered, and the proxy operator sees where it goes.
+- **Not a VPN itself.** In proxy mode only browser traffic is covered, and the proxy operator sees
+  where it goes. VPN mode relies on your VPN app for routing.
 - **System VPN / TUN mode has no kill switch.** noleaker routes nothing there, so if the VPN drops,
   traffic goes out directly. Use the VPN app's kill switch, and check DNS leaks in the VPN app.
 - **SOCKS5 username/password only in Firefox.** Chrome's proxy API cannot carry them, so Chrome
