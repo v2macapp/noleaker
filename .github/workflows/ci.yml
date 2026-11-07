@@ -58,6 +58,7 @@ jobs:
       - name: E2E leak scenarios
         env:
           FIREFOX_BIN: ${{ runner.temp }}/firefox/firefox
+          TZ: Asia/Tehran # the captcha zone test needs a zone other than the runner's UTC
         run: npm run e2e:firefox
 
   e2e-chrome:
@@ -79,4 +80,6 @@ jobs:
           npx -y @puppeteer/browsers@2.10.5 install chrome@dev --path "$RUNNER_TEMP/cft" | tail -1 | cut -d" " -f2- > cft.txt
           npx -y @puppeteer/browsers@2.10.5 install chromedriver@dev --path "$RUNNER_TEMP/cft" | tail -1 | cut -d" " -f2- > driver.txt
       - name: E2E leak scenarios
+        env:
+          TZ: Asia/Tehran # the captcha zone test needs a zone other than the runner's UTC
         run: CHROME_BIN="$(cat cft.txt)" CHROMEDRIVER_BIN="$(cat driver.txt)" npm run e2e:chrome
