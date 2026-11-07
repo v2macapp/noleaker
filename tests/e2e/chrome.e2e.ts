@@ -47,6 +47,16 @@ window.result = { name: n, zone: Intl.DateTimeFormat().resolvedOptions().timeZon
 document.title = 'done';
 </script>`;
 
+// A captcha-provider page (served through the SOCKS server): the timezone at first parse and later.
+// On the captcha list but not HSTS preloaded (cloudflare.com is), so plain HTTP loads.
+const CAPTCHA_HOST = 'geo.captcha-delivery.com';
+const CAPTCHA = `<!doctype html><title>captcha</title><script>
+window.first = Intl.DateTimeFormat().resolvedOptions().timeZone;
+setTimeout(() => { window.later = Intl.DateTimeFormat().resolvedOptions().timeZone; document.title = 'done'; }, 1500);
+</script>`;
+const ZONE = 'Pacific/Kiritimati';
+const REAL = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 function server(body: string) {
   const s = { hits: 0, server: null as unknown as Server };
   s.server = createServer((req, res) => {
@@ -63,6 +73,8 @@ const listen = (s: Server) =>
 
 const direct = server('direct');
 const proxied = server(FIXTURE);
+const captcha = server(CAPTCHA);
+let captchaUrl = '';
 const sockets = new Set<Socket>();
 let socks: Server;
 let url = '';
@@ -163,10 +175,16 @@ async function browse(times = 3): Promise<void> {
 before(async () => {
   const proxiedPort = await listen(proxied.server);
   const directPort = await listen(direct.server);
+  const captchaPort = await listen(captcha.server);
+  captchaUrl = `http://${CAPTCHA_HOST}:${captchaPort}/`;
   url = `http://${HOST}:${directPort}/`;
   socks = createSocksServer({
     route: (host: string, port: number) =>
-      host === HOST ? ['127.0.0.1', proxiedPort] : [host, port],
+      host === HOST
+        ? ['127.0.0.1', proxiedPort]
+        : host === CAPTCHA_HOST
+          ? ['127.0.0.1', captchaPort]
+          : [host, port],
   });
   socks.on('connection', (s: Socket) => {
     sockets.add(s);
@@ -185,7 +203,7 @@ before(async () => {
 
 after(async () => {
   await driver?.quit().catch(() => undefined);
-  for (const s of [direct.server, proxied.server, socks]) s?.close();
+  for (const s of [direct.server, proxied.server, captcha.server, socks]) s?.close();
   for (const s of sockets) s.destroy();
 });
 
@@ -209,6 +227,43 @@ test('WebRTC: no real-IP candidates', async () => {
   );
   assert.ok(proxied.hits > 0, 'the fixture was served through the proxy');
   assert.equal(direct.hits, 0);
+});
+
+/** Load the captcha page and read the zone it saw at first parse and after the config landed. */
+async function captchaZones(): Promise<{ first: string; later: string }> {
+  await driver.get(captchaUrl);
+  await until('captcha page finished', async () => (await driver.getTitle()) === 'done');
+  return driver.executeScript('return { first: window.first, later: window.later };');
+}
+
+/** Change state fields under the extension's state lock. */
+const patchState = (fields: string) =>
+  ext(`await navigator.locks.request('state', async () => {
+    const s = (await chrome.storage.local.get('state')).state;
+    await chrome.storage.local.set({ state: { ...s, ...${fields} } });
+  });`);
+
+const captchaScript = () =>
+  ext<number>(
+    `return (await chrome.scripting.getRegisteredContentScripts({ ids: ['noleaker-captcha-main', 'noleaker-captcha-main-path'] })).length;`,
+  );
+
+test('captcha frames: neutral in Strict from the first script, untouched in Compatibility', async () => {
+  assert.notEqual(REAL, ZONE, 'pick another override zone for this machine');
+  assert.notEqual(REAL, 'UTC', 'this check needs a machine whose zone is not UTC');
+  // A stored state without routingMode migrates to Compatibility, so choose Strict here.
+  await patchState(`{ routingMode: 'strict', overrides: { ...s.overrides, timezone: '${ZONE}' } }`);
+  await until('Strict captcha script registered', async () => (await captchaScript()) === 2);
+  const strict = await captchaZones();
+  assert.ok(['UTC', ZONE].includes(strict.first), `Strict first parse saw ${strict.first}`);
+  assert.equal(strict.later, ZONE);
+
+  await patchState(`{ routingMode: 'compatibility' }`);
+  await until('captcha script removed', async () => (await captchaScript()) === 0);
+  assert.deepEqual(await captchaZones(), { first: REAL, later: REAL });
+  await patchState(`{ overrides: { ...s.overrides, timezone: null } }`); // later tests expect the defaults
+  await verified();
+  assert.ok(captcha.hits >= 2);
 });
 
 test('turning the proxy off during a health check stays off', async () => {

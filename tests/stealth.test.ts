@@ -91,10 +91,10 @@ describe.skipIf(
     expect(env.run('Intl.DateTimeFormat().resolvedOptions().timeZone')).toBe('Europe/Berlin');
   });
 
-  it('leaves captcha frames untouched before configuration delivery', () => {
+  // main.js reaches a captcha frame only in Strict mode, where the frame must not show real values.
+  it('gives captcha frames the neutral startup state before configuration delivery', () => {
     const env = boot('main-first', live(), 'challenges.cloudflare.com');
-    const real = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    expect(env.run('Intl.DateTimeFormat().resolvedOptions().timeZone')).toBe(real);
+    expect(env.run('Intl.DateTimeFormat().resolvedOptions().timeZone')).toBe('UTC');
   });
 
   for (const order of ['bridge-first', 'main-first'] as const) {

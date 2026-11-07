@@ -25,3 +25,8 @@ export function isCaptchaPage(hostname: string, pathname: string): boolean {
   if (CAPTCHA_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`))) return true;
   return host === RECAPTCHA_HOST && pathname.startsWith(RECAPTCHA_PATH);
 }
+
+/** Match patterns for the pages above; the manifest keeps content/main.js off them. */
+export const CAPTCHA_DOMAIN_MATCHES = CAPTCHA_DOMAINS.map((d) => `*://*.${d}/*`);
+export const RECAPTCHA_MATCH = `*://${RECAPTCHA_HOST}${RECAPTCHA_PATH}*`;
+export const CAPTCHA_MATCHES = [...CAPTCHA_DOMAIN_MATCHES, RECAPTCHA_MATCH];

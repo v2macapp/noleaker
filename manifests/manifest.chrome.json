@@ -34,6 +34,16 @@
       "all_frames": true,
       "match_about_blank": true,
       "match_origin_as_fallback": true,
+      "exclude_matches": [
+        "*://*.challenges.cloudflare.com/*",
+        "*://*.hcaptcha.com/*",
+        "*://*.recaptcha.net/*",
+        "*://*.arkoselabs.com/*",
+        "*://*.funcaptcha.com/*",
+        "*://*.geetest.com/*",
+        "*://*.captcha-delivery.com/*",
+        "*://www.google.com/recaptcha/*"
+      ],
       "js": ["content/main.js"],
       "world": "MAIN"
     },
