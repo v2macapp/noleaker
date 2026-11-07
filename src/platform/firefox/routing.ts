@@ -27,13 +27,16 @@ export interface RequestDetails {
 interface FirefoxProxyApi {
   onRequest: {
     addListener(
-      fn: (d: RequestDetails) => ProxyInfo | undefined | Promise<ProxyInfo | undefined>,
+      fn: (d: RequestDetails) => Answer | Promise<Answer>,
       filter: { urls: string[] },
     ): void;
     hasListener(fn: unknown): boolean;
   };
   onError: { addListener(fn: (error: Error) => void): void };
 }
+
+/** What the listener gives Firefox. A trailing null ends the failover chain (see `final`). */
+export type Answer = ProxyInfo | [ProxyInfo, null] | undefined;
 
 export const firefoxProxy = (): FirefoxProxyApi =>
   (chrome as unknown as { proxy: FirefoxProxyApi }).proxy;
@@ -141,23 +144,29 @@ export function decide(d: RequestDetails): ProxyInfo | undefined {
   return where === 'proxy' ? proxyInfo : where === 'direct' ? DIRECT : DEAD_END;
 }
 
-export function onRequest(
-  d: RequestDetails,
-): ProxyInfo | undefined | Promise<ProxyInfo | undefined> {
+/**
+ * Firefox chains every SOCKS answer to the browser's own proxy setting (system proxy, or direct
+ * with network.proxy.failover_direct) and uses it once ours refuses, so a dead proxy or the dead
+ * end would quietly go out another way (issue #2). A null after it ends the chain instead.
+ */
+const final = (info: ProxyInfo | undefined): Answer =>
+  info?.type === 'socks' ? [info, null] : info;
+
+export function onRequest(d: RequestDetails): Answer | Promise<Answer> {
   try {
-    if (haveRouting) return decide(d);
+    if (haveRouting) return final(decide(d));
     return Promise.race([waitForRouting(), timeout()]).then(
       (result) => {
-        if (result === 'timeout') return DEAD_END;
+        if (result === 'timeout') return final(DEAD_END);
         try {
-          return decide(d);
+          return final(decide(d));
         } catch {
-          return DEAD_END;
+          return final(DEAD_END);
         }
       },
-      () => DEAD_END,
+      () => final(DEAD_END),
     );
   } catch {
-    return DEAD_END;
+    return final(DEAD_END);
   }
 }

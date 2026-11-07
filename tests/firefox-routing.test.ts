@@ -4,14 +4,16 @@ import { directLookup, NO_DIRECT } from '../src/shared/route';
 
 const BASE = 'moz-extension://abc/';
 const profile = { id: 'p', name: 'p', host: 'proxy.example', port: 1080 };
-const SOCKS = {
+const SOCKS_INFO = {
   type: 'socks',
   host: 'proxy.example',
   port: 1080,
   proxyDNS: true,
   failoverTimeout: 5,
 };
-const DEAD = { type: 'socks', host: '127.0.0.1', port: 1, proxyDNS: true };
+// Every SOCKS answer ends with null so Firefox cannot fail over to its own proxy setting (#2).
+const SOCKS = [SOCKS_INFO, null];
+const DEAD = [{ type: 'socks', host: '127.0.0.1', port: 1, proxyDNS: true }, null];
 const page = (url: string) => ({
   url,
   originUrl: 'https://site.example/',
@@ -81,11 +83,10 @@ describe('Firefox proxy.onRequest routing', () => {
   });
   it('passes SOCKS5 credentials when the profile has them', () => {
     on({ profile: { ...profile, username: 'u', password: 'p' } });
-    expect(r.onRequest(page('https://example.com/'))).toEqual({
-      ...SOCKS,
-      username: 'u',
-      password: 'p',
-    });
+    expect(r.onRequest(page('https://example.com/'))).toEqual([
+      { ...SOCKS_INFO, username: 'u', password: 'p' },
+      null,
+    ]);
   });
   it('unparseable URLs and internal failures answer with the dead end, never throw', () => {
     on();

@@ -63,6 +63,21 @@ const listen = (s: Server) =>
   );
 
 const direct = server('direct');
+// The browser's own proxy setting. Firefox fails over to it when the extension's proxy refuses
+// (issue #2), so a request for our hosts here left without noleaker's proxy. Firefox's own
+// services use it too (extensions never see them), so only the host is recorded. It answers nothing.
+const fallback = { hosts: [] as string[], server: createServer() };
+fallback.server.on('connection', (s: Socket) =>
+  s.once('data', (b: Buffer) => {
+    // "CONNECT host:443 HTTP/1.1" or "GET http://host:port/ HTTP/1.1"
+    const target = b.toString('latin1').split(' ')[1] ?? '';
+    fallback.hosts.push(target.replace(/^\w+:\/\//, '').replace(/[:/].*$/, ''));
+    s.destroy();
+  }),
+);
+const ours = () =>
+  fallback.hosts.filter((h) => [HOST, CAPTCHA_HOST, 'cloudflare.com', 'ipwho.is'].includes(h));
+let fallbackPort = 0;
 const proxied = server(FIXTURE);
 const captcha = server(CAPTCHA);
 let captchaUrl = '';
@@ -79,6 +94,11 @@ function prefs(): Record<string, string | number | boolean> {
     'extensions.autoDisableScopes': 0,
     'extensions.webextensions.uuids': JSON.stringify({ [ID]: UUID }),
     'network.dns.localDomains': HOST,
+    'network.proxy.type': 1,
+    'network.proxy.http': '127.0.0.1',
+    'network.proxy.http_port': fallbackPort,
+    'network.proxy.ssl': '127.0.0.1',
+    'network.proxy.ssl_port': fallbackPort,
     // Without mDNS obfuscation a real-IP WebRTC leak shows up as a plain address.
     'media.peerconnection.ice.obfuscate_host_addresses': false,
     'browser.shell.checkDefaultBrowser': false,
@@ -166,6 +186,7 @@ async function browse(times = 3): Promise<void> {
 before(async () => {
   const proxiedPort = await listen(proxied.server);
   const directPort = await listen(direct.server);
+  fallbackPort = await listen(fallback.server);
   const captchaPort = await listen(captcha.server);
   captchaUrl = `http://${CAPTCHA_HOST}:${captchaPort}/`;
   url = `http://${HOST}:${directPort}/`;
@@ -191,11 +212,13 @@ before(async () => {
   } });`);
   await verified();
   direct.hits = 0; // the home page loaded once before the proxy was on
+  fallback.hosts = [];
 });
 
 after(async () => {
   await driver?.quit().catch(() => undefined);
-  for (const s of [direct.server, proxied.server, captcha.server, socks]) s?.close();
+  for (const s of [direct.server, proxied.server, captcha.server, fallback.server, socks])
+    s?.close();
   for (const s of sockets) s.destroy();
 });
 
@@ -285,4 +308,5 @@ test('kill switch: SOCKS server down, no direct request', async () => {
   ).catch(explain);
   await browse();
   assert.equal(direct.hits, 0);
+  assert.deepEqual(ours(), [], "requests failed over to the browser's own proxy");
 });
