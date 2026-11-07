@@ -67,13 +67,21 @@ describe('detectExit', () => {
     });
   afterEach(() => vi.unstubAllGlobals());
 
-  it('trusts ipwho.is when a VPN routes Cloudflare outside the tunnel (issue #3)', async () => {
+  it('prefers ipwho.is but marks the exit uncertain when the two disagree (issue #3)', async () => {
     stub(trace, who('9.9.9.9'));
     expect(await detectExit()).toMatchObject({
       ip: '9.9.9.9',
       countryCode: 'DE',
       timezone: 'Europe/Berlin',
+      uncertain: true,
     });
+  });
+  it('does not ask a lookup host that would go direct', async () => {
+    stub(trace, who('9.9.9.9'));
+    const exit = await detectExit((host) => host !== 'cloudflare.com');
+    expect(exit).toMatchObject({ ip: '9.9.9.9' });
+    expect(exit?.uncertain).toBeUndefined();
+    expect(await detectExit(() => false)).toBeNull();
   });
   it('keeps the trace country and adds the timezone when both see one IP', async () => {
     stub(trace, who('5.5.5.5'));

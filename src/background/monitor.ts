@@ -1,6 +1,7 @@
 import { describeExitChange, shouldStoreExit, type ExitRefresh } from '../shared/exit';
 import { activeProfile } from '../shared/profiles';
 import { detectExit } from '../shared/lookup';
+import { directLookup, route } from '../shared/route';
 import { log } from '../shared/log';
 import { getState, persistMigration, setState } from '../shared/storage';
 import type { State } from '../shared/types';
@@ -51,7 +52,14 @@ async function runCheck(force = false): Promise<ExitRefresh> {
   lastCheckAt = Date.now();
   await syncProxy();
   await syncProtection();
-  const exit = await detectExit();
+  // Proxy mode: a lookup host on the direct list would report the real IP, so it is skipped.
+  const direct = directLookup({}, before.extraDirectDomains);
+  const strict = before.routingMode === 'strict';
+  const exit = await detectExit((host) =>
+    before.connection === 'system'
+      ? true
+      : route(host, { blocking: false, strict, direct }) === 'proxy',
+  );
   const now = await getState();
   if (configKey(now) !== configKey(before)) {
     // config changed mid-check; a new check follows
@@ -70,6 +78,11 @@ async function runCheck(force = false): Promise<ExitRefresh> {
   }
 
   if (now.killSwitchActive) log('info', 'Proxy recovered; kill switch released');
+  if (exit.uncertain && !now.detectedExit?.uncertain)
+    log(
+      'warn',
+      'Exit uncertain: Cloudflare and ipwho.is saw different IPs, so one went around the tunnel',
+    );
   const found = { ip: exit.ip, countryCode: exit.countryCode };
   const previous = now.detectedExit
     ? { ip: now.detectedExit.ip, countryCode: now.detectedExit.countryCode }

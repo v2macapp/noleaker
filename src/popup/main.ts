@@ -147,7 +147,7 @@ function render(state: State): void {
   const exit = effectiveExit(state);
   const name = exit ? (COUNTRIES[exit.countryCode]?.name ?? exit.countryCode) : '';
   $('exit').textContent = exit
-    ? `${exit.ip ?? '?'}\n${name}${exit.overridden ? ' (manual)' : ''}\n${exit.timezone ?? 'unknown timezone'}${exit.timezone && exit.timezone !== SYSTEM_TZ ? `\nYour system: ${SYSTEM_TZ} (hidden from sites)` : ''}`
+    ? `${exit.ip ?? '?'}\n${name}${exit.overridden ? ' (manual)' : ''}\n${exit.timezone ?? 'unknown timezone'}${exit.timezone && exit.timezone !== SYSTEM_TZ ? `\nYour system: ${SYSTEM_TZ} (hidden from sites)` : ''}${state.detectedExit?.uncertain ? '\nUncertain: two lookups saw different IPs, so one went around the tunnel' : ''}`
     : state.killSwitchActive
       ? '—'
       : 'Detecting…';

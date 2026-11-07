@@ -44,27 +44,33 @@ async function get(url: string): Promise<Response> {
 }
 
 /**
- * Detect the exit: Cloudflare trace and ipwho.is, either one alone is enough.
- * When they see different IPs a VPN is routing one of them outside the tunnel, usually Cloudflare
- * (a direct rule is common), so ipwho.is wins.
- * shortcut: nothing tells which side is really tunnelled, compare a third host if ipwho.is is the
- * one sent direct.
+ * Detect the exit: Cloudflare trace and ipwho.is, either one alone is enough. A source whose host
+ * `viaProxy` says goes direct is not asked: its answer would be the real IP.
+ * When they see different IPs, one of them did not go through the tunnel, and nothing tells which.
+ * ipwho.is is kept for the identity (a VPN's direct rule usually hits Cloudflare, issue #3), but the
+ * result is marked `uncertain` so the popup says so instead of showing it as verified.
  * Returns null when both lookups fail, which means the proxy is unreachable.
  */
-export async function detectExit(): Promise<ExitInfo | null> {
+export async function detectExit(
+  viaProxy: (host: string) => boolean = () => true,
+): Promise<ExitInfo | null> {
   let trace: ReturnType<typeof parseTrace> = null;
-  try {
-    trace = parseTrace(await (await get(TRACE_URL)).text());
-  } catch {
-    // ipwho.is alone is enough
-  }
+  if (viaProxy(new URL(TRACE_URL).hostname))
+    try {
+      trace = parseTrace(await (await get(TRACE_URL)).text());
+    } catch {
+      // ipwho.is alone is enough
+    }
   let who: ReturnType<typeof parseIpwho> = null;
-  try {
-    who = parseIpwho(await (await get(IPWHO_URL)).json());
-  } catch {
-    // no timezone from the lookup; the country table is the fallback
-  }
-  if (who && who.ip !== trace?.ip) return { ...who, detectedAt: Date.now() };
+  if (viaProxy(new URL(IPWHO_URL).hostname))
+    try {
+      who = parseIpwho(await (await get(IPWHO_URL)).json());
+    } catch {
+      // no timezone from the lookup; the country table is the fallback
+    }
+  if (who && trace && who.ip !== trace.ip)
+    return { ...who, detectedAt: Date.now(), uncertain: true };
+  if (who && !trace) return { ...who, detectedAt: Date.now() };
   if (!trace) return null;
   return { ...trace, timezone: who?.timezone ?? '', detectedAt: Date.now() };
 }

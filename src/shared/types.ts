@@ -13,6 +13,8 @@ export interface ExitInfo {
   countryCode: string;
   timezone: string;
   detectedAt: number;
+  /** The two lookups saw different IPs: one of them went around the proxy or VPN. */
+  uncertain?: boolean;
 }
 
 /** One switch per shield (see upgrade.md). */
