@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "noleaker",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "SOCKS5 proxy manager with leak protection: timezone, locale, WebRTC and QUIC follow your proxy.",
   "browser_specific_settings": {
     "gecko": {
