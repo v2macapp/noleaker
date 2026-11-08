@@ -3,12 +3,13 @@ export const LANGUAGES_UI: Record<string, string> = {
   en: 'English',
   fa: 'فارسی',
   zh: '中文',
+  'zh-Hant': '繁體中文',
   ru: 'Русский',
   fr: 'Français',
+  pt: 'Português',
   es: 'Español',
 };
 export const UI_LANG_KEY = 'uiLang';
-const RTL = new Set(['fa']);
 const ATTRS = ['placeholder', 'aria-label', 'data-tip', 'title'];
 
 export async function uiLang(): Promise<string> {
@@ -26,7 +27,7 @@ export async function initI18n(): Promise<void> {
   const lang = await uiLang();
   const root = document.documentElement;
   root.lang = lang;
-  root.dir = RTL.has(lang) ? 'rtl' : 'ltr';
+  root.dir = lang === 'fa' ? 'rtl' : 'ltr';
   if (lang === 'en') return;
   let dict: Record<string, string>;
   try {
@@ -50,14 +51,14 @@ export async function initI18n(): Promise<void> {
     }
   };
   const walk = (node: Node): void => {
-    if (node.nodeType === Node.TEXT_NODE) return text(node as Text);
-    if (node.nodeType !== Node.ELEMENT_NODE) return;
-    attrs(node as Element);
+    if (node instanceof Text) return text(node);
+    if (!(node instanceof Element)) return;
+    attrs(node);
     node.childNodes.forEach(walk);
   };
 
   walk(document.body);
-  if (document.title) document.title = t(document.title) ?? document.title;
+  document.title = t(document.title) ?? document.title;
   // A translated value is never a key itself, so these writes do not loop.
   new MutationObserver((records) => {
     for (const r of records) {
