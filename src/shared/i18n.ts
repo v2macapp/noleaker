@@ -7,14 +7,16 @@ export const LANGUAGES_UI: Record<string, string> = {
   ru: 'Русский',
   fr: 'Français',
   pt: 'Português',
+  de: 'Deutsch',
   es: 'Español',
 };
 export const UI_LANG_KEY = 'uiLang';
 const ATTRS = ['placeholder', 'aria-label', 'data-tip', 'title'];
 
 export async function uiLang(): Promise<string> {
-  const stored = (await chrome.storage.local.get(UI_LANG_KEY))[UI_LANG_KEY] as string | undefined;
-  const lang = stored ?? navigator.language.slice(0, 2);
+  const lang =
+    ((await chrome.storage.local.get(UI_LANG_KEY))[UI_LANG_KEY] as string | undefined) ??
+    navigator.language.slice(0, 2);
   return lang in LANGUAGES_UI ? lang : 'en';
 }
 
@@ -41,7 +43,7 @@ export async function initI18n(): Promise<void> {
     if (n.parentElement?.closest('textarea, code, script, style')) return;
     const v = t(n.data);
     // Keep the surrounding spaces: they separate this node from inline neighbours.
-    if (v) n.data = n.data.replace(/^(\s*)[\s\S]*?(\s*)$/, `$1${v}$2`);
+    if (v) n.data = n.data.replace(/^(\s*).*?(\s*)$/s, `$1${v}$2`);
   };
   const attrs = (el: Element): void => {
     for (const a of ATTRS) {
