@@ -25,7 +25,7 @@ export interface SpoofConfig {
   coordinates: { latitude: number; longitude: number } | null;
   /**
    * Stealth mode. Unlike everything else it does not pause with the proxy or on whitelisted sites:
-   * the patches stay installed there, and their stack frames must stay hidden too.
+   * the patches stay installed there, and their function shapes must stay native too.
    */
   stealth: boolean;
 }
@@ -53,13 +53,14 @@ export const INACTIVE_CONFIG: SpoofConfig = {
 
 /**
  * Key rule: spoof only while the proxy (or system VPN) is on, reachable, and the exit is known.
- * Otherwise a fake timezone could be paired with the real IP.
+ * Otherwise a fake timezone could be paired with the real IP. A manual country counts only after
+ * a check has seen the exit (B18), which proves the proxy works.
  */
 export function buildSpoofConfig(state: State): SpoofConfig {
   const exit = effectiveExit(state);
   const ok = connected(state) && !state.killSwitchActive;
   const identity = resolveIdentity(state);
-  if (!ok || !exit || !identity.timezone) {
+  if (!ok || !exit || !state.detectedExit || !identity.timezone) {
     return {
       ...INACTIVE_CONFIG,
       stealth: state.stealth,

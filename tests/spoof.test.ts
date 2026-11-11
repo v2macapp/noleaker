@@ -183,6 +183,11 @@ describe('buildSpoofConfig', () => {
     expect(buildSpoofConfig({ ...ok, killSwitchActive: true })).toMatchObject({ active: false });
     expect(buildSpoofConfig({ ...ok, detectedExit: null })).toMatchObject({ active: false });
   });
+  it('a manual country waits for the first check to see the exit (B18)', () => {
+    const manual = { ...ok, countryOverride: 'JP' };
+    expect(buildSpoofConfig({ ...manual, detectedExit: null })).toMatchObject({ active: false });
+    expect(buildSpoofConfig(manual)).toMatchObject({ active: true, timezone: 'Asia/Tokyo' });
+  });
 });
 
 describe('Temporal.Now (B8)', () => {
