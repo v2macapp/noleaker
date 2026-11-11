@@ -187,6 +187,8 @@ noleaker.`, and `enqueue` in `src/background/monitor.ts:24-32` turns the guard o
   geolocation are still refused until the config arrives: a worker needs the prelude, which
   cannot come from page-writable storage. That part needs the deferred worker of B10.
   Checked in Chrome by the e2e test `startup: a reload and a new iframe …`.
+  The page can see the key, which tells it noleaker is installed. So with Stealth on nothing is
+  stored, and those pages keep the neutral start.
 
 ### B7. New `about:blank` iframes disagree with their parent page
 

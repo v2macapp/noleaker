@@ -37,6 +37,9 @@ describe('startup identity (B6, B7)', () => {
     rememberStartup(tokyo, s);
     rememberStartup(INACTIVE_CONFIG, s);
     expect(startupConfig(s)).toMatchObject({ active: true, timezone: 'UTC' });
+    rememberStartup(tokyo, s);
+    rememberStartup({ ...tokyo, stealth: true }, s); // a page could spot the key
+    expect(s().getItem(STARTUP_KEY)).toBeNull();
     s().setItem(STARTUP_KEY, JSON.stringify({ ...tokyo, active: false, shields: {} }));
     expect(startupConfig(s)).toMatchObject({ active: true, shields: INACTIVE_CONFIG.shields });
   });

@@ -6,6 +6,9 @@ import { INACTIVE_CONFIG, type SpoofConfig } from '../shared/spoof-config';
  * so later loads and new same-origin frames start with the right values instead of UTC/en-US.
  * The page can read and write it. So it only chooses which spoofed values to start with; it
  * never turns spoofing off, and anything invalid falls back to the neutral UTC start.
+ * A page can also see that the key exists, which tells it that noleaker is installed. That is why
+ * Stealth mode stores nothing.
+ * shortcut: the key is visible when Stealth is off; to hide it, move to a channel pages can't read.
  */
 export const STARTUP_KEY = 'k7f3q9';
 
@@ -41,7 +44,7 @@ export function startupConfig(storage = session): SpoofConfig {
 /** Called by the bridge with every config it pushes. */
 export function rememberStartup(config: SpoofConfig, storage = session): void {
   try {
-    if (!config.active) storage().removeItem(STARTUP_KEY);
+    if (!config.active || config.stealth) storage().removeItem(STARTUP_KEY);
     else {
       const { timezone, locale, languages } = config;
       storage().setItem(STARTUP_KEY, JSON.stringify({ timezone, locale, languages }));
