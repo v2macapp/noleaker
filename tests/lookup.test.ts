@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { detectExit, parseIpwho, parseTrace } from '../src/shared/lookup';
+import { detectExit, parseIpwho, parseTrace, retryOnce } from '../src/shared/lookup';
 import { effectiveExit } from '../src/shared/exit';
 import { DEFAULT_STATE } from '../src/shared/storage';
 
@@ -83,6 +83,18 @@ describe('detectExit', () => {
     expect(exit?.uncertain).toBeUndefined();
     expect(await detectExit(() => false)).toBeNull();
   });
+  it('keeps the stored timezone while Cloudflare sees the same exit, without asking ipwho.is (B4)', async () => {
+    const known = { ip: '5.5.5.5', countryCode: 'IR', timezone: 'Asia/Tehran', detectedAt: 0 };
+    stub(trace, null);
+    expect(await detectExit(undefined, known)).toMatchObject({ timezone: 'Asia/Tehran' });
+    stub(trace, who('5.5.5.5'));
+    expect(await detectExit(undefined, { ...known, ip: '6.6.6.6' })).toMatchObject({
+      timezone: 'Europe/Berlin',
+    });
+    expect(await detectExit(undefined, { ...known, uncertain: true })).toMatchObject({
+      timezone: 'Europe/Berlin',
+    });
+  });
   it('keeps the trace country and adds the timezone when both see one IP', async () => {
     stub(trace, who('5.5.5.5'));
     expect(await detectExit()).toMatchObject({
@@ -98,5 +110,15 @@ describe('detectExit', () => {
     expect(await detectExit()).toMatchObject({ ip: '9.9.9.9', countryCode: 'DE' });
     stub(null, null);
     expect(await detectExit()).toBeNull();
+  });
+});
+
+describe('retryOnce (B2)', () => {
+  it('a first failure is retried; only a second one gives up', async () => {
+    const answers = [null, 'ok'];
+    expect(await retryOnce(async () => answers.shift() ?? null, 0)).toBe('ok');
+    let calls = 0;
+    expect(await retryOnce(async () => (calls++, null), 0)).toBeNull();
+    expect(calls).toBe(2);
   });
 });

@@ -1,6 +1,6 @@
 import { describeExitChange, shouldStoreExit, type ExitRefresh } from '../shared/exit';
 import { activeProfile } from '../shared/profiles';
-import { detectExit } from '../shared/lookup';
+import { detectExit, retryOnce } from '../shared/lookup';
 import { directLookup, route } from '../shared/route';
 import { log } from '../shared/log';
 import { getState, persistMigration, setState } from '../shared/storage';
@@ -14,10 +14,14 @@ import { forgetAppliedPac, syncProxy } from '@platform/proxy';
 const ALARM = 'health-check';
 const CHECK_MINUTES = 1;
 const ERROR_RECHECK_MS = 10_000;
+const RETRY_MS = 3_000;
+/** While the kill switch blocks, check this often so recovery does not wait for the alarm (B2). */
+const BLOCKED_RECHECK_MS = 10_000;
 const KEY = 'checkKey';
 
 let lastCheckAt = 0;
 let chain: Promise<unknown> = Promise.resolve();
+let blockedRecheck: ReturnType<typeof setTimeout> | undefined;
 
 /** Serialise all work so proxy updates and checks never overlap. */
 function enqueue(task: () => Promise<void>): void {
@@ -55,11 +59,16 @@ async function runCheck(force = false): Promise<ExitRefresh> {
   // Proxy mode: a lookup host on the direct list would report the real IP, so it is skipped.
   const direct = directLookup({}, before.extraDirectDomains);
   const strict = before.routingMode === 'strict';
-  const exit = await detectExit((host) =>
-    before.connection === 'system'
-      ? true
-      : route(host, { blocking: false, strict, direct }) === 'proxy',
-  );
+  const lookup = () =>
+    detectExit(
+      (host) =>
+        before.connection === 'system'
+          ? true
+          : route(host, { blocking: false, strict, direct }) === 'proxy',
+      before.detectedExit,
+    );
+  // Already blocking: no retry, the quick re-check below repeats it.
+  const exit = before.killSwitchActive ? await lookup() : await retryOnce(lookup, RETRY_MS);
   const now = await getState();
   if (configKey(now) !== configKey(before)) {
     // config changed mid-check; a new check follows
@@ -70,6 +79,12 @@ async function runCheck(force = false): Promise<ExitRefresh> {
     await setState({ killSwitchActive: true });
     await syncProxy();
     await syncProtection();
+    // shortcut: a timer dies with the service worker; the minute alarm is the fallback then.
+    clearTimeout(blockedRecheck);
+    blockedRecheck = setTimeout(
+      () => enqueue(async () => void (await runCheck())),
+      BLOCKED_RECHECK_MS,
+    );
     return {
       ok: false,
       changed: false,

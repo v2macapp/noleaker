@@ -49,10 +49,14 @@ async function get(url: string): Promise<Response> {
  * When they see different IPs, one of them did not go through the tunnel, and nothing tells which.
  * ipwho.is is kept for the identity (a VPN's direct rule usually hits Cloudflare, issue #3), but the
  * result is marked `uncertain` so the popup says so instead of showing it as verified.
+ * Only ipwho.is gives a timezone, so while Cloudflare still sees the stored, certain exit `known`
+ * its timezone is reused and ipwho.is is not asked (B4: a failed or rate-limited ipwho.is lookup
+ * used to wipe the timezone).
  * Returns null when both lookups fail, which means the proxy is unreachable.
  */
 export async function detectExit(
   viaProxy: (host: string) => boolean = () => true,
+  known: ExitInfo | null = null,
 ): Promise<ExitInfo | null> {
   let trace: ReturnType<typeof parseTrace> = null;
   if (viaProxy(new URL(TRACE_URL).hostname))
@@ -61,6 +65,8 @@ export async function detectExit(
     } catch {
       // ipwho.is alone is enough
     }
+  if (trace && known?.timezone && !known.uncertain && known.ip === trace.ip)
+    return { ...trace, timezone: known.timezone, detectedAt: Date.now() };
   let who: ReturnType<typeof parseIpwho> = null;
   if (viaProxy(new URL(IPWHO_URL).hostname))
     try {
@@ -73,4 +79,15 @@ export async function detectExit(
   if (who && !trace) return { ...who, detectedAt: Date.now() };
   if (!trace) return null;
   return { ...trace, timezone: who?.timezone ?? '', detectedAt: Date.now() };
+}
+
+/** One failed check is often a wake from sleep or a short hiccup (B2): ask once more before giving up. */
+export async function retryOnce<T>(
+  task: () => Promise<T | null>,
+  delayMs: number,
+): Promise<T | null> {
+  const first = await task();
+  if (first) return first;
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
+  return task();
 }
