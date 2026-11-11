@@ -306,6 +306,22 @@ export function installSpoof(g: any): { setConfig(config: SpoofConfig | null): v
     }
   }
 
+  // Instant formats in the default zone. ZonedDateTime throws on a timeZone option and Plain types
+  // have no zone, so those only get the locale.
+  for (const type of ['Instant', 'ZonedDateTime', 'PlainDateTime', 'PlainDate', 'PlainTime']) {
+    const proto = g.Temporal?.[type]?.prototype;
+    if (typeof proto?.toLocaleString !== 'function') continue;
+    const kind = type === 'Instant' ? 'date' : 'other';
+    patch(
+      proto,
+      'toLocaleString',
+      (orig) =>
+        function (this: any, ...args: any[]) {
+          return orig.apply(this, withDefaults(args, kind));
+        },
+    );
+  }
+
   // ---- navigator.language(s) ----------------------------------------------------------
   const NavProto: any = g.Navigator?.prototype ?? g.WorkerNavigator?.prototype;
   if (NavProto) {

@@ -194,7 +194,8 @@ describe('Temporal.Now (B8)', () => {
       plainDateTimeISO(tz) { return tz ?? 'Asia/Tehran'; },
       plainDateISO(tz) { return tz ?? 'Asia/Tehran'; },
       plainTimeISO(tz) { return tz ?? 'Asia/Tehran'; },
-    } }`);
+    }, Instant: class { toLocaleString(l, o) { return [l, o?.timeZone]; } },
+      PlainDate: class { toLocaleString(l, o) { return [l, o?.timeZone]; } } }`);
     spoof = installSpoof(runInContext('globalThis', ctx));
     spoof.setConfig(NY);
     expect(run('Temporal.Now.timeZoneId()')).toBe('America/New_York');
@@ -202,6 +203,12 @@ describe('Temporal.Now (B8)', () => {
       expect(run(`Temporal.Now.${f}()`)).toBe('America/New_York');
       expect(run(`Temporal.Now.${f}('UTC')`)).toBe('UTC');
     }
+    expect(run('new Temporal.Instant().toLocaleString()')).toEqual([LOCALE, 'America/New_York']);
+    expect(run("new Temporal.Instant().toLocaleString('de', { timeZone: 'UTC' })")).toEqual([
+      'de',
+      'UTC',
+    ]);
+    expect(run('new Temporal.PlainDate().toLocaleString()')).toEqual([LOCALE, undefined]);
     spoof.setConfig({ ...NY, shields: { ...SHIELD_DEFAULTS, timezone: false } });
     expect(run('Temporal.Now.timeZoneId()')).toBe('Asia/Tehran');
     expect(run('Temporal.Now.plainDateISO()')).toBe('Asia/Tehran');
