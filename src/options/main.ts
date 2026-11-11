@@ -51,9 +51,14 @@ const extraEl = $<HTMLTextAreaElement>('extra');
 const whitelistEl = $<HTMLTextAreaElement>('whitelist');
 const META_KEY = 'iranListMeta';
 
+/** Fields typed into since their last save (B15): a state change must not overwrite them. */
+const edited = new WeakSet<EventTarget>();
+document.addEventListener('input', (e) => e.target && edited.add(e.target));
+const untouched = (el: HTMLElement) => document.activeElement !== el && !edited.has(el);
+
 /** Fill a textarea from state unless the user is editing it. */
 function fill(el: HTMLTextAreaElement, domains: string[]): void {
-  if (document.activeElement !== el) el.value = domains.join('\n');
+  if (untouched(el)) el.value = domains.join('\n');
 }
 
 function renderMeta(meta: IranListMeta | undefined): void {
@@ -72,6 +77,7 @@ function bindDomainSave(
     const { domains, invalid } = parseDomainLines(textarea.value);
     $(msg).textContent = invalid.length ? `Ignored: ${invalid.join(', ')}` : 'Saved';
     textarea.value = domains.join('\n');
+    edited.delete(textarea);
     void updateState(() => ({ [key]: domains }));
   });
 }
@@ -133,7 +139,7 @@ const ov = {
 };
 
 function fillInput(el: HTMLInputElement, value: string): void {
-  if (document.activeElement !== el) el.value = value;
+  if (untouched(el)) el.value = value;
 }
 
 /** "currently automatic: X" or "currently manual: X" for one field. */
@@ -216,6 +222,7 @@ function initOverrides(): void {
     if (!p) return;
     ov.lat.value = String(p.latitude);
     ov.lon.value = String(p.longitude);
+    edited.add(ov.lat).add(ov.lon);
   });
   for (const el of [ov.lat, ov.lon]) el.addEventListener('input', () => (ov.country.value = ''));
   ov.mode.addEventListener('change', () => {
@@ -248,11 +255,15 @@ function initOverrides(): void {
     $('ov-accept-error').textContent = errors.acceptLanguage ?? '';
     $('ov-coords-error').textContent = errors.coordinates ?? '';
     if (Object.keys(errors).length > 0) return;
+    for (const el of [ov.timezone, ov.locale, ov.accept, ov.lat, ov.lon]) edited.delete(el);
     void updateState(() => ({ overrides })).then(() => ($('ov-msg').textContent = 'Saved'));
   });
   $('ov-reset').addEventListener('click', () => {
     clearErrors();
-    for (const el of [ov.timezone, ov.locale, ov.accept, ov.lat, ov.lon]) el.value = '';
+    for (const el of [ov.timezone, ov.locale, ov.accept, ov.lat, ov.lon]) {
+      el.value = '';
+      edited.delete(el);
+    }
     ov.country.value = '';
     void updateState(() => ({ overrides: { ...NO_OVERRIDES } })).then(
       () => ($('ov-msg').textContent = 'Back to automatic'),
