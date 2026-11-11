@@ -150,7 +150,12 @@ export function installWorkers(g: any, deps: WorkerDeps): { refresh(): void } | 
   }
 
   const running = new Set<WeakRef<any>>();
-  let signature = JSON.stringify(deps.config());
+  // What a running worker holds (B5). Null while paused: a pause changes nothing a worker has.
+  const held = () => {
+    const c = deps.config();
+    return c?.active ? JSON.stringify([c.timezone, c.locale, c.languages, c.fingerprint]) : null;
+  };
+  let signature = held();
   let wasStrict = !!deps.config()?.strict;
   const { patchProxy } = createNative(g);
   patchProxy(g, 'Worker', NativeWorker, {
@@ -162,13 +167,15 @@ export function installWorkers(g: any, deps: WorkerDeps): { refresh(): void } | 
   });
   return {
     refresh() {
-      const next = JSON.stringify(deps.config());
-      if (next !== signature && (wasStrict || deps.config()?.strict)) {
+      const next = held();
+      const strict = wasStrict || !!deps.config()?.strict;
+      wasStrict = !!deps.config()?.strict;
+      if (next === null || next === signature) return;
+      if (strict) {
         for (const reference of running) reference.deref()?.terminate();
         running.clear();
       }
       signature = next;
-      wasStrict = !!deps.config()?.strict;
     },
   };
 }

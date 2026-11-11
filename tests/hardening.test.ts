@@ -383,6 +383,12 @@ describe('early sensitive APIs', () => {
     const worker = new g.Worker('/worker.js');
     control?.refresh();
     expect(worker.terminate).not.toHaveBeenCalled();
+    const active = config;
+    config = { ...config, active: false, whitelist: ['x.test'] }; // a pause and a settings change
+    control?.refresh();
+    config = active;
+    control?.refresh();
+    expect(worker.terminate).not.toHaveBeenCalled(); // B5: nothing the worker holds changed
     config = { ...config, timezone: 'Asia/Tokyo' };
     control?.refresh();
     expect(worker.terminate).toHaveBeenCalledOnce();

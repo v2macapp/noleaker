@@ -17,7 +17,7 @@ Not audited: `src/leaktest/`, `src/audit/`, and the e2e suites.
 | [x]  | B2  | High     | Stops working    | One failed exit check trips the kill switch                        |
 | [ ]  | B3  | Medium   | Stops working    | Browser start blocks restored tabs                                 |
 | [x]  | B4  | High     | Stops working    | A failed ipwho.is lookup wipes the timezone                        |
-| [ ]  | B5  | Medium   | Stops working    | Strict mode kills every page worker on any config change           |
+| [x]  | B5  | Medium   | Stops working    | Strict mode kills every page worker on any config change           |
 | [ ]  | B6  | High     | Captcha          | Startup state: UTC, en-US and refused workers until config arrives |
 | [x]  | B7  | High     | Captcha          | New `about:blank` iframes disagree with their parent page          |
 | [x]  | B8  | High     | Captcha and leak | `Temporal` is not patched                                          |
