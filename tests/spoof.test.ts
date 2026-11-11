@@ -65,6 +65,10 @@ describe('timezone spoofing (America/New_York)', () => {
     expect(run("new Date('2020-01-15T12:00:00Z').getTime()")).toBe(utc);
     expect(run("new Date('2020-01-15').getTime()")).toBe(Date.UTC(2020, 0, 15));
     expect(run("new Date('Jan 15 2020 12:00:00 GMT+0000').getTime()")).toBe(utc);
+    for (const tz of ['EST', 'EDT', 'CST', 'CDT', 'MST', 'MDT', 'PST', 'PDT']) {
+      const s = `Mon, 01 Jan 2024 10:00:00 ${tz}`;
+      expect(run(`new Date('${s}').getTime()`)).toBe(Date.parse(s));
+    }
   });
   it('setters work in the spoofed zone', () => {
     expect(

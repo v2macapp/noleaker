@@ -1,13 +1,13 @@
 import '@platform/wiring';
 import { readProxyControl } from '@platform/control';
-import { listen } from '../shared/messages';
+import { fromExtensionPage, listen } from '../shared/messages';
 import { getState, onStateChanged } from '../shared/storage';
 import { UPDATE_ALARM, updateIranList, approveIranList } from './iranlist';
 import { forgetTab, handleStaleReport, trackNavigation } from './stale';
 import { ensureAlarms, onAlarm, onConfigChange, onStartup, refreshExitNow } from './monitor';
 
 function requireOptions(sender: chrome.runtime.MessageSender): void {
-  if (sender.id !== chrome.runtime.id || sender.url !== chrome.runtime.getURL('options/index.html'))
+  if (!fromExtensionPage(sender, 'options/index.html'))
     throw new Error('Routing-list actions require extension Options.');
 }
 

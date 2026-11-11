@@ -55,6 +55,13 @@ export type Handlers = {
   ) => MessageMap[K]['response'] | Promise<MessageMap[K]['response']>;
 };
 
+/** True when the message comes from this extension's page at `path`, ignoring `#fragment` and `?query`. */
+export function fromExtensionPage(sender: chrome.runtime.MessageSender, path: string): boolean {
+  return (
+    sender.id === chrome.runtime.id && sender.url?.split(/[?#]/)[0] === chrome.runtime.getURL(path)
+  );
+}
+
 /** Register handlers in the service worker. */
 export function listen(handlers: Handlers): void {
   chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {

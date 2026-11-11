@@ -25,8 +25,8 @@ Not audited: `src/leaktest/`, `src/audit/`, and the e2e suites.
 | [ ]  | B10 | Medium   | Captcha, sites   | The first worker on a CSP site is lost                             |
 | [ ]  | B11 | Medium   | Captcha, sites   | Workers on Trusted Types sites probably break (unconfirmed)        |
 | [ ]  | B12 | Low      | Captcha          | The captcha provider list is short                                 |
-| [ ]  | B13 | Medium   | Options          | Routing-list update fails after clicking a sidebar link            |
-| [ ]  | B14 | Low      | Spoofing         | Dates with US zone abbreviations are shifted                       |
+| [x]  | B13 | Medium   | Options          | Routing-list update fails after clicking a sidebar link            |
+| [x]  | B14 | Low      | Spoofing         | Dates with US zone abbreviations are shifted                       |
 | [ ]  | B15 | Low      | Options          | Unsaved text in the options page is overwritten                    |
 | [ ]  | B16 | Medium   | Sites            | Persian fonts can be stripped permanently                          |
 | [ ]  | B17 | Low      | Status           | False "Uncertain" exit on dual-stack servers (unconfirmed)         |

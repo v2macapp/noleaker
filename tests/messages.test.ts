@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { listen, type Handlers } from '../src/shared/messages';
+import { fromExtensionPage, listen, type Handlers } from '../src/shared/messages';
 
 type Listener = (m: unknown, s: unknown, send: (r: unknown) => void) => boolean | undefined;
 let installed: Listener;
@@ -39,5 +39,28 @@ describe('listen', () => {
     expect(installed({ type: 'nope' }, {}, () => undefined)).toBe(false);
     expect(installed({ type: 'constructor' }, {}, () => undefined)).toBe(false);
     expect(installed({ type: '__proto__' }, {}, () => undefined)).toBe(false);
+  });
+});
+
+describe('fromExtensionPage', () => {
+  beforeEach(() => {
+    vi.stubGlobal('chrome', {
+      runtime: { id: 'x', getURL: (p: string) => `chrome-extension://x/${p}` },
+    });
+  });
+  const page = 'options/index.html';
+  it('accepts the page with a sidebar fragment or query', () => {
+    for (const url of ['', '#tools', '?a=1#proxies'])
+      expect(fromExtensionPage({ id: 'x', url: `chrome-extension://x/${page}${url}` }, page)).toBe(
+        true,
+      );
+  });
+  it('rejects other pages, other extensions and missing URLs', () => {
+    expect(fromExtensionPage({ id: 'x', url: 'chrome-extension://x/popup/index.html' }, page)).toBe(
+      false,
+    );
+    expect(fromExtensionPage({ id: 'y', url: `chrome-extension://x/${page}` }, page)).toBe(false);
+    expect(fromExtensionPage({ id: 'x', url: `chrome-extension://y/${page}` }, page)).toBe(false);
+    expect(fromExtensionPage({ id: 'x' }, page)).toBe(false);
   });
 });
