@@ -69,6 +69,8 @@ describe('timezone spoofing (America/New_York)', () => {
       const s = `Mon, 01 Jan 2024 10:00:00 ${tz}`;
       expect(run(`new Date('${s}').getTime()`)).toBe(Date.parse(s));
     }
+    // A month name after the time is still local time, so it must be shifted.
+    expect(run("new Date('Jan 15 2020 07:00:00 Jan').getTime()")).toBe(utc);
   });
   it('setters work in the spoofed zone', () => {
     expect(

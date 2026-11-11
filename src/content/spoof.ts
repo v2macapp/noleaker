@@ -247,7 +247,7 @@ export function installSpoof(g: any): { setConfig(config: SpoofConfig | null): v
 
   // ---- Date constructor / parse -------------------------------------------------------
   const TIME_THEN_ZONE =
-    /\d:\d{2}(?::\d{2}(?:\.\d+)?)?\s*(?:[ap]m)?\s*(?:z\b|[+-]\d{2}(?::?\d{2})?\b|[a-z]{2,4}t\b)/i;
+    /\d:\d{2}(?::\d{2}(?:\.\d+)?)?\s*(?:[ap]m)?\s*(?:z\b|[+-]\d{2}(?::?\d{2})?\b|[ecmp][sd]t\b)/i; // the only zone words engines parse
   const hasExplicitZone = (s: string) => /\b(?:GMT|UTC|UT)\b/i.test(s) || TIME_THEN_ZONE.test(s);
   const isDateOnlyIso = (s: string) => /^\s*[+-]?\d{4,6}(?:-\d{2}(?:-\d{2})?)?\s*$/.test(s);
 
