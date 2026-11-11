@@ -74,9 +74,12 @@ describe('WebRTC', () => {
       analyzeWebRtc('disable_non_proxied_udp', 'controlled_by_this_extension', [srflx]).status,
     ).toBe('fail');
     expect(analyzeWebRtc('default', 'controlled_by_this_extension', []).status).toBe('fail');
+    expect(analyzeWebRtc('default', 'controlled_by_other_extensions', []).status).toBe('fail');
+  });
+  it('passes when another extension holds the right policy (B1)', () => {
     expect(
       analyzeWebRtc('disable_non_proxied_udp', 'controlled_by_other_extensions', []).status,
-    ).toBe('fail');
+    ).toBe('pass');
   });
 });
 

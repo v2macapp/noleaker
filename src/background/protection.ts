@@ -49,6 +49,24 @@ async function syncPrelude(): Promise<void> {
   preludeSynced = true; // the file only changes with an extension update, which restarts the worker
 }
 
+export const RTC_POLICY = 'disable_non_proxied_udp';
+type Setting<T> = chrome.types.ChromeSetting<T>;
+
+/**
+ * The browser gives a privacy setting to the extension installed last. Another extension holding
+ * the value noleaker wants is fine (B1); `privacy-watch` guards if it changes the value later.
+ */
+const holds = async <T>(setting: Setting<T>, value: T) => (await setting.get({})).value === value;
+
+/** Take control of `setting` with `value`; a set that cannot win only matters if the value is wrong. */
+async function claim<T>(setting: Setting<T>, value: T): Promise<void> {
+  const now = await setting.get({});
+  if (now.value === value && now.levelOfControl === 'controlled_by_this_extension') return;
+  await setting.set({ value }).catch((e) => {
+    if (now.value !== value) throw e;
+  });
+}
+
 async function applyProtection(): Promise<void> {
   await syncPrelude().catch((e) => log('warn', 'Could not store the worker prelude', e));
   const state = await effectiveState(await getState());
@@ -56,35 +74,18 @@ async function applyProtection(): Promise<void> {
   const plan = protectionPlan(state);
   const { config } = plan;
 
-  if (plan.webrtc) {
-    const rtc = await chrome.privacy.network.webRTCIPHandlingPolicy.get({});
-    if (
-      rtc.value !== 'disable_non_proxied_udp' ||
-      rtc.levelOfControl !== 'controlled_by_this_extension'
-    )
-      await chrome.privacy.network.webRTCIPHandlingPolicy.set({ value: 'disable_non_proxied_udp' });
-  } else {
-    const rtc = await chrome.privacy.network.webRTCIPHandlingPolicy.get({});
-    if (rtc.levelOfControl === 'controlled_by_this_extension')
-      await chrome.privacy.network.webRTCIPHandlingPolicy.clear({});
-  }
-
+  const rtc = chrome.privacy.network.webRTCIPHandlingPolicy;
   const prediction = chrome.privacy.network.networkPredictionEnabled;
+  if (plan.webrtc) await claim(rtc, RTC_POLICY);
+  else if ((await rtc.get({})).levelOfControl === 'controlled_by_this_extension')
+    await rtc.clear({});
+
   if (plan.on) {
-    const previous = await prediction.get({});
-    if (previous.value !== false || previous.levelOfControl !== 'controlled_by_this_extension')
-      await prediction.set({ value: false });
-    const result = await prediction.get({});
-    if (result.value !== false || result.levelOfControl !== 'controlled_by_this_extension')
+    await claim(prediction, false);
+    if (!(await holds(prediction, false)))
       throw new Error('Network prediction control is unavailable.');
-    if (plan.webrtc) {
-      const rtc = await chrome.privacy.network.webRTCIPHandlingPolicy.get({});
-      if (
-        rtc.value !== 'disable_non_proxied_udp' ||
-        rtc.levelOfControl !== 'controlled_by_this_extension'
-      )
-        throw new Error('WebRTC policy is not controlled by noleaker.');
-    }
+    if (plan.webrtc && !(await holds(rtc, RTC_POLICY)))
+      throw new Error('WebRTC policy is not set as noleaker needs.');
   } else if ((await prediction.get({})).levelOfControl === 'controlled_by_this_extension')
     await prediction.clear({});
 
@@ -96,20 +97,10 @@ async function applyProtection(): Promise<void> {
   if (plan.on) {
     // Settings can change while rules are installed; verify again immediately before release.
     if (plan.proxyOn) await verifyProxyControl();
-    const predictionNow = await prediction.get({});
-    if (
-      predictionNow.value !== false ||
-      predictionNow.levelOfControl !== 'controlled_by_this_extension'
-    )
+    if (!(await holds(prediction, false)))
       throw new Error('Network prediction protection was lost before guard release.');
-    if (plan.webrtc) {
-      const rtcNow = await chrome.privacy.network.webRTCIPHandlingPolicy.get({});
-      if (
-        rtcNow.value !== 'disable_non_proxied_udp' ||
-        rtcNow.levelOfControl !== 'controlled_by_this_extension'
-      )
-        throw new Error('WebRTC protection was lost before guard release.');
-    }
+    if (plan.webrtc && !(await holds(rtc, RTC_POLICY)))
+      throw new Error('WebRTC protection was lost before guard release.');
   }
   await setGuard(plan.proxyOn && state.killSwitchActive && state.routingMode === 'strict');
 

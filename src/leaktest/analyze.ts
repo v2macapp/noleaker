@@ -177,7 +177,8 @@ export function candidateIps(candidates: string[]): string[] {
 
 export function analyzeWebRtc(policy: string, level: string, candidates: string[]): CheckResult {
   const base = { id: 'webrtc', title: 'WebRTC' };
-  if (level !== 'controlled_by_this_extension') {
+  // Another extension holding the right policy is fine (B1); only a wrong value fails.
+  if (policy !== 'disable_non_proxied_udp' && level !== 'controlled_by_this_extension') {
     return {
       ...base,
       status: 'fail',

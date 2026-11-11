@@ -229,6 +229,26 @@ describe('verified privacy controls', () => {
     await expect(syncProtection()).rejects.toThrow('WebRTC policy');
     expect(local[CONFIG_KEY]).toBeUndefined();
   });
+  it('accepts settings another extension holds when they have the right value (B1)', async () => {
+    local.state = baseState({});
+    const other = 'controlled_by_other_extensions' as const;
+    const set = vi.fn(async () => undefined);
+    chrome.privacy.network.networkPredictionEnabled.get = vi.fn(async () => ({
+      value: false,
+      levelOfControl: other,
+    }));
+    chrome.privacy.network.networkPredictionEnabled.set = set;
+    chrome.privacy.network.webRTCIPHandlingPolicy.get = vi.fn(async () => ({
+      value: 'disable_non_proxied_udp' as const,
+      levelOfControl: other,
+    }));
+    chrome.privacy.network.webRTCIPHandlingPolicy.set = vi.fn(async () => {
+      throw new Error('cannot take control');
+    });
+    await syncProtection();
+    expect(set).toHaveBeenCalled(); // still tries to take control
+    expect(local[CONFIG_KEY]).toMatchObject({ active: true });
+  });
 });
 
 it('does not release an existing request guard if proxy control is lost before release', async () => {

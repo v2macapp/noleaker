@@ -108,11 +108,11 @@ async function checkConfig(state: State): Promise<CheckResult> {
       detail: 'PAC is not mandatory; invalid PAC may allow direct fallback.',
     };
   const prediction = await chrome.privacy.network.networkPredictionEnabled.get({});
-  if (prediction.value !== false || prediction.levelOfControl !== 'controlled_by_this_extension')
+  if (prediction.value !== false)
     return {
       ...result,
       status: 'fail',
-      detail: 'Network prediction is not disabled and controlled by noleaker.',
+      detail: `Network prediction is not disabled (${prediction.levelOfControl}).`,
     };
   return {
     ...result,

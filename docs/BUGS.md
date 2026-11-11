@@ -13,7 +13,7 @@ Not audited: `src/leaktest/`, `src/audit/`, and the e2e suites.
 
 | Done | ID  | Severity | Area             | Bug                                                                |
 | ---- | --- | -------- | ---------------- | ------------------------------------------------------------------ |
-| [ ]  | B1  | High     | Stops working    | Another extension holding a privacy setting blocks all browsing    |
+| [x]  | B1  | High     | Stops working    | Another extension holding a privacy setting blocks all browsing    |
 | [ ]  | B2  | High     | Stops working    | One failed exit check trips the kill switch                        |
 | [ ]  | B3  | Medium   | Stops working    | Browser start blocks restored tabs                                 |
 | [ ]  | B4  | High     | Stops working    | A failed ipwho.is lookup wipes the timezone                        |
