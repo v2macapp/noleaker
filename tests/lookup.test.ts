@@ -76,6 +76,14 @@ describe('detectExit', () => {
       uncertain: true,
     });
   });
+  it('compares only countries when the two lookups used different IP families (B17)', async () => {
+    stub('ip=2001:db8::1\nloc=IR\n', who('5.5.5.5'));
+    const exit = await detectExit();
+    expect(exit).toMatchObject({ countryCode: 'IR', timezone: 'Europe/Berlin' });
+    expect(exit?.uncertain).toBeUndefined();
+    stub('ip=2001:db8::1\nloc=IR\n', who('9.9.9.9')); // DE vs IR: one went around the tunnel
+    expect(await detectExit()).toMatchObject({ uncertain: true });
+  });
   it('does not ask a lookup host that would go direct', async () => {
     stub(trace, who('9.9.9.9'));
     const exit = await detectExit((host) => host !== 'cloudflare.com');

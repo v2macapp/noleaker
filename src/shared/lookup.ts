@@ -72,7 +72,14 @@ export async function detectExit(
     } catch {
       // no timezone from the lookup; the country table is the fallback
     }
-  if (who && trace && who.ip !== trace.ip)
+  // A dual-stack server may reach one host over IPv6 and the other over IPv4 (B17): then only
+  // the countries can be compared.
+  const sameFamily = (a: string, b: string) => a.includes(':') === b.includes(':');
+  if (
+    who &&
+    trace &&
+    (sameFamily(who.ip, trace.ip) ? who.ip !== trace.ip : who.countryCode !== trace.countryCode)
+  )
     return { ...who, detectedAt: Date.now(), uncertain: true };
   if (who && !trace) return { ...who, detectedAt: Date.now() };
   if (!trace) return null;

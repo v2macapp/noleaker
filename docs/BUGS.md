@@ -29,7 +29,7 @@ Not audited: `src/leaktest/`, `src/audit/`, and the e2e suites.
 | [x]  | B14 | Low      | Spoofing         | Dates with US zone abbreviations are shifted                       |
 | [ ]  | B15 | Low      | Options          | Unsaved text in the options page is overwritten                    |
 | [ ]  | B16 | Medium   | Sites            | Persian fonts can be stripped permanently                          |
-| [ ]  | B17 | Low      | Status           | False "Uncertain" exit on dual-stack servers (unconfirmed)         |
+| [x]  | B17 | Low      | Status           | False "Uncertain" exit on dual-stack servers (unconfirmed)         |
 | [x]  | B18 | Low      | Spoofing         | Spoofing starts before the proxy is verified (manual country)      |
 | [ ]  | B19 | Low      | Sites            | Relative URLs fail inside wrapped workers                          |
 | [ ]  | B20 | Low      | Spoofing         | Whitelist: header rule and page script disagree in frames          |
