@@ -184,10 +184,13 @@ part of Export/Import.
 
 With the Workers shield on, a classic same-origin `Worker` starts through a small blob script that
 runs the prelude (timezone, language, GPU, OffscreenCanvas noise) and then loads your script with
-`importScripts`. Inside the worker `location`, `importScripts`, `fetch`, XHR and nested `Worker`
-resolve against the original script URL. A worker is left alone (and runs natively) in compatibility mode when it is a
-module worker, cross-origin or `data:`, when the prelude has not arrived yet, or after the page
-reported a CSP that blocks blob workers. Limits:
+`importScripts`. For blob URLs created in the page, the original Blob is included directly after
+the prelude, so a CSP that permits blob workers but forbids blob script imports does not break
+the worker, and revoking the original URL immediately is safe. Inside the worker `location`,
+`importScripts`, `fetch`, XHR and nested `Worker` resolve against the original script URL. A worker
+is left alone (and runs natively) in compatibility mode when it is a module worker, cross-origin
+or `data:`, an unknown blob URL, when the prelude has not arrived yet, or after the page reported
+a CSP that blocks blob workers. Limits:
 
 - `SharedWorker` is not wrapped: a blob URL differs per tab, so tabs would stop sharing one worker.
 - Service Workers and workers started from inside a worker are not covered.
@@ -196,6 +199,7 @@ reported a CSP that blocks blob workers. Limits:
 - Worker creation is blocked until initial configuration arrives; unsupported workers then run
   natively only in compatibility mode.
 - Error stack traces inside a worker show a `blob:` URL.
+- Prepending the prelude to a Blob means its leading `"use strict"` is no longer a directive.
 
 ### Google Flow unlock
 

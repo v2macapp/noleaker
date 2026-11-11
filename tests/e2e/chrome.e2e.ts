@@ -57,12 +57,31 @@ setTimeout(() => { window.later = Intl.DateTimeFormat().resolvedOptions().timeZo
 const ZONE = 'Pacific/Kiritimati';
 const REAL = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+// Cloudflare allows blob workers but blocks importing blob scripts inside them.
+const BLOB_WORKER = `<!doctype html><title>blob worker</title><script nonce="fixture">
+const finish = (result) => { window.result = result; document.title = 'done'; };
+const timeout = setTimeout(() => finish({ error: 'worker timed out' }), 8000);
+function start() {
+  if (Intl.DateTimeFormat().resolvedOptions().timeZone !== '${ZONE}') return setTimeout(start, 20);
+  const source = new Blob(['postMessage({ zone: Intl.DateTimeFormat().resolvedOptions().timeZone, href: location.href });'], { type: 'text/javascript' });
+  window.originalUrl = URL.createObjectURL(source);
+  const worker = new Worker(window.originalUrl);
+  worker.onmessage = (e) => { clearTimeout(timeout); finish(e.data); worker.terminate(); };
+  worker.onerror = (e) => { clearTimeout(timeout); finish({ error: e.message }); worker.terminate(); };
+  URL.revokeObjectURL(window.originalUrl);
+}
+start();
+</script>`;
+
 function server(body: string) {
   const s = { hits: 0, server: null as unknown as Server };
   s.server = createServer((req, res) => {
     s.hits++;
     res.setHeader('content-type', 'text/html');
-    res.end(req.url?.startsWith('/forge') ? FORGE : body);
+    if (req.url?.startsWith('/blob-worker')) {
+      res.setHeader('content-security-policy', "script-src 'nonce-fixture'; worker-src blob:");
+      res.end(BLOB_WORKER);
+    } else res.end(req.url?.startsWith('/forge') ? FORGE : body);
   });
   return s;
 }
@@ -247,6 +266,26 @@ const captchaScript = () =>
   ext<number>(
     `return (await chrome.scripting.getRegisteredContentScripts({ ids: ['noleaker-captcha-main', 'noleaker-captcha-main-path'] })).length;`,
   );
+
+test('Strict blob worker runs under a CSP that forbids blob imports and keeps the spoofed identity', async () => {
+  await patchState(`{ routingMode: 'strict', overrides: { ...s.overrides, timezone: '${ZONE}' } }`);
+  await verified();
+  await driver.get(`${url}blob-worker`);
+  await driver
+    .wait(async () => (await driver.getTitle()) === 'done', 10_000)
+    .catch(async (e) => {
+      const page = await driver.executeScript(
+        'return { title: document.title, result: window.result, url: window.originalUrl };',
+      );
+      const logs = await driver.manage().logs().get('browser');
+      throw new Error(JSON.stringify({ page, logs }), { cause: e });
+    });
+  const result = await driver.executeScript('return window.result;');
+  const originalUrl = await driver.executeScript('return window.originalUrl;');
+  assert.deepEqual(result, { zone: ZONE, href: originalUrl });
+  await patchState(`{ overrides: { ...s.overrides, timezone: null } }`);
+  await verified();
+});
 
 test('captcha frames: neutral in Strict from the first script, untouched in Compatibility', async () => {
   assert.notEqual(REAL, ZONE, 'pick another override zone for this machine');

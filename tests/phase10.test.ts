@@ -206,7 +206,7 @@ describe('WebRTC at API level', () => {
 describe('Worker wrapper (page side)', () => {
   const setup = `
     globalThis.Worker = class Worker { constructor(url, options) { this.url = url; this.options = options; } };
-    globalThis.Blob = class Blob { constructor(parts, options) { this.parts = parts; this.options = options; } };
+    globalThis.Blob = class Blob { constructor(parts, options) { this.parts = parts; this.options = options; this.type = options?.type ?? ''; } };
     globalThis.created = [];
     URL.createObjectURL = (blob) => { created.push(blob); return 'blob:https://site.test/' + created.length; };
     URL.revokeObjectURL = () => {};
@@ -228,7 +228,7 @@ describe('Worker wrapper (page side)', () => {
     const w = started(env, 'new Worker("w.js", { name: "n" })');
     expect(w.url).toMatch(/^blob:/);
     expect(w.options).toEqual({ name: 'n' });
-    const source = env.run<string>('created[0].parts[0]');
+    const source = env.run<string>('created[0].parts.join("")');
     expect(source).toContain('self.__noleaker__=');
     expect(source.indexOf('/*PRELUDE*/')).toBeGreaterThan(source.indexOf('__noleaker__'));
     expect(source).toContain('importScripts("https://site.test/app/w.js");');
@@ -245,6 +245,40 @@ describe('Worker wrapper (page side)', () => {
     );
     expect(started(env, 'new Worker("data:text/javascript,1")').url).toBe('data:text/javascript,1');
     expect(env.run('created.length')).toBe(0);
+  });
+  it('includes a blob worker source directly, even after its original URL is revoked', () => {
+    const env = make({ ...config(), strict: true });
+    env.run(`
+      const original = new Blob(['postMessage("ready");'], { type: 'text/javascript' });
+      const url = URL.createObjectURL(original);
+      const worker = new Worker(url);
+      URL.revokeObjectURL(url);
+    `);
+    expect(env.run('created[1].parts[0]')).not.toContain('importScripts(');
+    expect(env.run('created[1].parts[1] === original')).toBe(true);
+    expect(env.run('created[1].type')).toBe('text/javascript');
+    expect(env.run('worker.url !== url')).toBe(true);
+  });
+  it('preserves a blob MIME type so the browser still rejects non-script sources', () => {
+    const env = make();
+    env.run(`new Worker(URL.createObjectURL(new Blob(['<html></html>'], { type: 'text/html' })))`);
+    expect(env.run('created[1].type')).toBe('text/html');
+  });
+  it('does not wrap unknown or revoked blob URLs and blocks them in Strict', () => {
+    const env = make();
+    env.run(`
+      const url = URL.createObjectURL(new Blob(['postMessage("ready");']));
+      URL.revokeObjectURL(new URL(url));
+    `);
+    expect(started(env, 'new Worker(url)').url).toBe(env.run('url'));
+    expect(started(env, 'new Worker("blob:https://site.test/unknown")').url).toBe(
+      'blob:https://site.test/unknown',
+    );
+    const strict = make({ ...config(), strict: true });
+    strict.g.DOMException = DOMException;
+    expect(() => started(strict, 'new Worker("blob:https://site.test/unknown")')).toThrow(
+      'cannot be protected',
+    );
   });
   it('is native without a prelude, when paused, or with the workers shield off', () => {
     expect(started(make(config(), null), 'new Worker("w.js")').url).toBe('w.js');
