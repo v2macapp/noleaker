@@ -149,33 +149,35 @@ export function installWorkers(g: any, deps: WorkerDeps): { refresh(): void } | 
     return [blobUrl, ...args.slice(1)];
   }
 
-  const running = new Set<WeakRef<any>>();
-  // What a running worker holds (B5). Null while paused: a pause changes nothing a worker has.
-  const held = () => {
+  // Each worker is tagged with what it holds: the config it was wrapped with (the whitelist does
+  // not reach it), or null for a native one (B5).
+  const running = new Set<{ ref: WeakRef<any>; holds: string | null }>();
+  const current = () => {
     const c = deps.config();
-    return c?.active ? JSON.stringify([c.timezone, c.locale, c.languages, c.fingerprint]) : null;
+    return c?.active ? JSON.stringify([{ ...c, whitelist: [] }, deps.gpu()]) : null;
   };
-  let signature = held();
   let wasStrict = !!deps.config()?.strict;
   const { patchProxy } = createNative(g);
   patchProxy(g, 'Worker', NativeWorker, {
     construct(target, args, newTarget) {
-      const worker = Reflect.construct(target, wrap(args), newTarget);
-      running.add(new WeakRef(worker));
+      const wrapped = wrap(args);
+      const worker = Reflect.construct(target, wrapped, newTarget);
+      running.add({ ref: new WeakRef(worker), holds: wrapped === args ? null : current() });
       return worker;
     },
   });
   return {
+    /** Strict: end workers that hold anything but the current config. A pause ends none. */
     refresh() {
-      const next = held();
+      const next = current();
       const strict = wasStrict || !!deps.config()?.strict;
       wasStrict = !!deps.config()?.strict;
-      if (next === null || next === signature) return;
-      if (strict) {
-        for (const reference of running) reference.deref()?.terminate();
-        running.clear();
-      }
-      signature = next;
+      if (next === null || !strict) return;
+      for (const worker of running)
+        if (worker.holds !== next) {
+          worker.ref.deref()?.terminate();
+          running.delete(worker);
+        }
     },
   };
 }

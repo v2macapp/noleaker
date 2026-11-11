@@ -392,5 +392,17 @@ describe('early sensitive APIs', () => {
     config = { ...config, timezone: 'Asia/Tokyo' };
     control?.refresh();
     expect(worker.terminate).toHaveBeenCalledOnce();
+    const tokyo = config;
+    config = { ...config, active: false, strict: false };
+    const native = new g.Worker('/worker.js'); // started unwrapped during a pause
+    control?.refresh();
+    expect(native.terminate).not.toHaveBeenCalled();
+    config = tokyo;
+    control?.refresh();
+    expect(native.terminate).toHaveBeenCalledOnce();
+    const kept = new g.Worker('/worker.js');
+    config = { ...config, shields: { ...config.shields, canvas: !config.shields.canvas } };
+    control?.refresh();
+    expect(kept.terminate).toHaveBeenCalledOnce(); // a shield change counts too
   });
 });
