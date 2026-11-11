@@ -61,11 +61,14 @@ const REAL = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const BLOB_WORKER = `<!doctype html><title>blob worker</title><script nonce="fixture">
 const finish = (result) => { window.result = result; document.title = 'done'; };
 const timeout = setTimeout(() => finish({ error: 'worker timed out' }), 8000);
+const trusted = new URL(location.href).searchParams.has('trusted');
+const policy = trusted ? trustedTypes.createPolicy('fixture', { createScriptURL: (url) => url }) : null;
+if (trusted) trustedTypes.createPolicy('default', { createScriptURL: () => '' });
 function start() {
   if (Intl.DateTimeFormat().resolvedOptions().timeZone !== '${ZONE}') return setTimeout(start, 20);
   const source = new Blob(['postMessage({ zone: Intl.DateTimeFormat().resolvedOptions().timeZone, href: location.href });'], { type: 'text/javascript' });
   window.originalUrl = URL.createObjectURL(source);
-  const worker = new Worker(window.originalUrl);
+  const worker = new Worker(policy ? policy.createScriptURL(window.originalUrl) : window.originalUrl);
   worker.onmessage = (e) => { clearTimeout(timeout); finish(e.data); worker.terminate(); };
   worker.onerror = (e) => { clearTimeout(timeout); finish({ error: e.message }); worker.terminate(); };
   URL.revokeObjectURL(window.originalUrl);
@@ -79,7 +82,13 @@ function server(body: string) {
     s.hits++;
     res.setHeader('content-type', 'text/html');
     if (req.url?.startsWith('/blob-worker')) {
-      res.setHeader('content-security-policy', "script-src 'nonce-fixture'; worker-src blob:");
+      res.setHeader(
+        'content-security-policy',
+        "script-src 'nonce-fixture'; worker-src blob:" +
+          (req.url.includes('trusted')
+            ? "; trusted-types fixture default; require-trusted-types-for 'script'"
+            : ''),
+      );
       res.end(BLOB_WORKER);
     } else res.end(req.url?.startsWith('/forge') ? FORGE : body);
   });
@@ -270,19 +279,24 @@ const captchaScript = () =>
 test('Strict blob worker runs under a CSP that forbids blob imports and keeps the spoofed identity', async () => {
   await patchState(`{ routingMode: 'strict', overrides: { ...s.overrides, timezone: '${ZONE}' } }`);
   await verified();
-  await driver.get(`${url}blob-worker`);
-  await driver
-    .wait(async () => (await driver.getTitle()) === 'done', 10_000)
-    .catch(async (e) => {
-      const page = await driver.executeScript(
-        'return { title: document.title, result: window.result, url: window.originalUrl };',
-      );
-      const logs = await driver.manage().logs().get('browser');
-      throw new Error(JSON.stringify({ page, logs }), { cause: e });
+  for (const query of ['', '?trusted=1']) {
+    await until('blob worker fixture loaded', async () => {
+      await driver.get(`${url}blob-worker${query}`).catch(() => undefined);
+      return ['blob worker', 'done'].includes(await driver.getTitle());
     });
-  const result = await driver.executeScript('return window.result;');
-  const originalUrl = await driver.executeScript('return window.originalUrl;');
-  assert.deepEqual(result, { zone: ZONE, href: originalUrl });
+    await driver
+      .wait(async () => (await driver.getTitle()) === 'done', 10_000)
+      .catch(async (e) => {
+        const page = await driver.executeScript(
+          'return { title: document.title, result: window.result, url: window.originalUrl };',
+        );
+        const logs = await driver.manage().logs().get('browser');
+        throw new Error(JSON.stringify({ page, logs }), { cause: e });
+      });
+    const result = await driver.executeScript('return window.result;');
+    const originalUrl = await driver.executeScript('return window.originalUrl;');
+    assert.deepEqual(result, { zone: ZONE, href: originalUrl });
+  }
   await patchState(`{ overrides: { ...s.overrides, timezone: null } }`);
   await verified();
 });

@@ -213,6 +213,19 @@ describe('Worker wrapper (page side)', () => {
     globalThis.location = { origin: 'https://site.test', href: 'https://site.test/app/' };
     globalThis.document = { baseURI: 'https://site.test/app/' };
     globalThis.addEventListener = (type, fn) => { (globalThis.listeners ||= {})[type] = fn; };
+    globalThis.TrustedScriptURL = class TrustedScriptURL {
+      constructor(url) { this.url = url; }
+      toString() { return this.url; }
+    };
+    globalThis.TrustedTypePolicy = class TrustedTypePolicy {
+      constructor(approve) { this.approve = approve; }
+      createScriptURL(url) {
+        const value = this.approve(url);
+        if (!value) throw new TypeError('Policy refused URL');
+        return new TrustedScriptURL(typeof value === 'string' ? value : url);
+      }
+    };
+    globalThis.trustedTypes = { isScriptURL: (url) => url instanceof TrustedScriptURL };
   `;
   const make = (live: SpoofConfig | null = config(), prelude: string | null = '/*PRELUDE*/') => {
     // A subclass, so the mocked statics never touch Node's real URL.
@@ -264,6 +277,29 @@ describe('Worker wrapper (page side)', () => {
     env.run(`new Worker(URL.createObjectURL(new Blob(['<html></html>'], { type: 'text/html' })))`);
     expect(env.run('created[1].type')).toBe('text/html');
   });
+  it('keeps a trusted worker URL trusted through its original page policy', () => {
+    const env = make({ ...config(), strict: true });
+    env.run(`
+      const url = URL.createObjectURL(new Blob(['postMessage("ready");']));
+      const policy = new TrustedTypePolicy((value) => value.startsWith('blob:'));
+      const worker = new Worker(policy.createScriptURL(url));
+    `);
+    expect(env.run('trustedTypes.isScriptURL(worker.url)')).toBe(true);
+    expect(env.run('String(worker.url)')).toBe('blob:https://site.test/2');
+  });
+  it('respects a policy refusing the wrapper: native fallback in Compatibility, blocked in Strict', () => {
+    for (const strict of [false, true]) {
+      const env = make({ ...config(), strict });
+      env.g.DOMException = DOMException;
+      env.run(`
+        const url = URL.createObjectURL(new Blob(['postMessage("ready");']));
+        const policy = new TrustedTypePolicy((value) => value === url);
+        const trusted = policy.createScriptURL(url);
+      `);
+      if (strict) expect(() => env.run('new Worker(trusted)')).toThrow('cannot be protected');
+      else expect(env.run('new Worker(trusted).url === trusted')).toBe(true);
+    }
+  });
   it('does not wrap unknown or revoked blob URLs and blocks them in Strict', () => {
     const env = make();
     env.run(`
@@ -279,6 +315,16 @@ describe('Worker wrapper (page side)', () => {
     expect(() => started(strict, 'new Worker("blob:https://site.test/unknown")')).toThrow(
       'cannot be protected',
     );
+  });
+  it('blocks a trusted policy redirecting the wrapper to a source without protection', () => {
+    const env = make({ ...config(), strict: true });
+    env.g.DOMException = DOMException;
+    env.run(`
+      const url = URL.createObjectURL(new Blob(['postMessage("ready");']));
+      const policy = new TrustedTypePolicy(() => url);
+      const trusted = policy.createScriptURL(url);
+    `);
+    expect(() => env.run('new Worker(trusted)')).toThrow('cannot be protected');
   });
   it('is native without a prelude, when paused, or with the workers shield off', () => {
     expect(started(make(config(), null), 'new Worker("w.js")').url).toBe('w.js');

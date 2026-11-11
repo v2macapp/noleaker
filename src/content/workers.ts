@@ -58,6 +58,19 @@ export function installWorkers(g: any, deps: WorkerDeps): { refresh(): void } | 
   const createObjectURL = g.URL.createObjectURL.bind(g.URL);
   const revokeObjectURL = g.URL.revokeObjectURL.bind(g.URL);
   const blobs = new Map<string, Blob>();
+  const policies = new WeakMap<object, any>();
+  const policyPrototype = g.TrustedTypePolicy?.prototype;
+  if (policyPrototype?.createScriptURL)
+    patch(
+      policyPrototype,
+      'createScriptURL',
+      (orig) =>
+        function (this: any, ...args: any[]) {
+          const url = orig.apply(this, args);
+          policies.set(url, this);
+          return url;
+        },
+    );
   patch(
     g.URL,
     'createObjectURL',
@@ -121,6 +134,18 @@ export function installWorkers(g: any, deps: WorkerDeps): { refresh(): void } | 
       }),
     );
     setTimer(() => revokeObjectURL(blobUrl), REVOKE_AFTER_MS);
+    if (g.trustedTypes?.isScriptURL(scriptURL)) {
+      // The same page policy must approve the replacement URL; never create a permissive policy.
+      try {
+        const trusted = policies.get(scriptURL)?.createScriptURL(blobUrl);
+        if (g.trustedTypes.isScriptURL(trusted) && String(trusted) === blobUrl)
+          return [trusted, ...args.slice(1)];
+      } catch {
+        // A policy that refuses the wrapper keeps the usual unsupported-worker fallback.
+      }
+      revokeObjectURL(blobUrl);
+      return fallback();
+    }
     return [blobUrl, ...args.slice(1)];
   }
 

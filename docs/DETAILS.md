@@ -190,7 +190,14 @@ the worker, and revoking the original URL immediately is safe. Inside the worker
 `importScripts`, `fetch`, XHR and nested `Worker` resolve against the original script URL. A worker
 is left alone (and runs natively) in compatibility mode when it is a module worker, cross-origin
 or `data:`, an unknown blob URL, when the prelude has not arrived yet, or after the page reported
-a CSP that blocks blob workers. Limits:
+a CSP that blocks blob workers.
+
+For a `TrustedScriptURL`, the wrapper URL is submitted to the same page policy that approved the
+original URL. If the policy is unavailable, rejects it or rewrites it, the usual unsupported-worker
+fallback applies: blocked in Strict, native in Compatibility. Page strings are never promoted to
+trusted values automatically.
+
+Limits:
 
 - `SharedWorker` is not wrapped: a blob URL differs per tab, so tabs would stop sharing one worker.
 - Service Workers and workers started from inside a worker are not covered.
