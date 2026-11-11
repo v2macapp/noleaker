@@ -83,17 +83,18 @@ describe('detectExit', () => {
     expect(exit?.uncertain).toBeUndefined();
     expect(await detectExit(() => false)).toBeNull();
   });
-  it('keeps the stored timezone while Cloudflare sees the same exit, without asking ipwho.is (B4)', async () => {
+  it('keeps the stored timezone when ipwho.is fails and Cloudflare sees the same exit (B4)', async () => {
     const known = { ip: '5.5.5.5', countryCode: 'IR', timezone: 'Asia/Tehran', detectedAt: 0 };
     stub(trace, null);
     expect(await detectExit(undefined, known)).toMatchObject({ timezone: 'Asia/Tehran' });
-    stub(trace, who('5.5.5.5'));
     expect(await detectExit(undefined, { ...known, ip: '6.6.6.6' })).toMatchObject({
-      timezone: 'Europe/Berlin',
+      timezone: '',
     });
     expect(await detectExit(undefined, { ...known, uncertain: true })).toMatchObject({
-      timezone: 'Europe/Berlin',
+      timezone: '',
     });
+    stub(trace, who('5.5.5.5')); // ipwho.is answers: its timezone wins
+    expect(await detectExit(undefined, known)).toMatchObject({ timezone: 'Europe/Berlin' });
   });
   it('keeps the trace country and adds the timezone when both see one IP', async () => {
     stub(trace, who('5.5.5.5'));
