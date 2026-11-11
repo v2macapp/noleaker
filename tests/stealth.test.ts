@@ -427,13 +427,11 @@ describe('stealth: strict shapes and clean stacks', () => {
     return undefined;
   };
 
-  it('an error that passes through a patch keeps its frames until stealth is on', () => {
+  it('an error that passes through a patch loses its extension frames, stealth on or off (B9)', () => {
     const { native, fn } = throwing();
-    expect(stackOf(fn)).toContain('chrome-extension://');
+    expect(stackOf(fn)).toBe(['Error: boom', page].join('\n'));
     native.setStrict(true);
     expect(stackOf(fn)).toBe(['Error: boom', page].join('\n'));
-    native.setStrict(false);
-    expect(stackOf(fn)).toContain('chrome-extension://'); // it follows the switch both ways
   });
   it('errors still propagate unchanged in type and message', () => {
     const { native, fn } = throwing();

@@ -49,7 +49,7 @@ function apply(config: SpoofConfig | null): void {
   pending = false;
   workerConfig = config;
   workers?.refresh();
-  // Stealth mode: strict function shapes and clean stacks. Independent of whether spoofing is on.
+  // Stealth mode: strict function shapes (stacks are always cleaned). Independent of whether spoofing is on.
   createNative(globalThis, { strict: config?.stealth === true });
   spoof.setConfig(config);
   // Every shield pauses together with the timezone spoofing (the key rule).

@@ -13,8 +13,8 @@ export interface PatchedMember {
  *
  * `strict` is the stealth switch. It can be turned on after the patches exist (the settings
  * arrive after the page's first instructions): it then re-shapes every patched function to copy
- * the own-property descriptors of the one it replaced, and from then on removes this
- * extension's frames from the stack of any error that passes through a patch.
+ * the own-property descriptors of the one it replaced. Errors that pass through a patch lose this
+ * extension's stack frames whether or not it is on.
  */
 export interface Native {
   strict: boolean;
@@ -104,12 +104,12 @@ export function createNative(g: any, options: { strict?: boolean } = {}): Native
     });
   }
 
-  /** Run `body`; in strict mode an error that escapes it loses this extension's stack frames. */
+  /** Run `body`; an error that escapes it loses this extension's stack frames, always (B9). */
   function guarded<T>(body: () => T): T {
     try {
       return body();
     } catch (e) {
-      if (native.strict) scrubStack(e);
+      scrubStack(e);
       throw e;
     }
   }
