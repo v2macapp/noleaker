@@ -184,3 +184,26 @@ describe('buildSpoofConfig', () => {
     expect(buildSpoofConfig({ ...ok, detectedExit: null })).toMatchObject({ active: false });
   });
 });
+
+describe('Temporal.Now (B8)', () => {
+  it('uses the spoofed zone when the caller gives none, and the real one when paused', () => {
+    ctx = createContext({});
+    run(`globalThis.Temporal = { Now: {
+      timeZoneId() { return 'Asia/Tehran'; },
+      zonedDateTimeISO(tz) { return tz ?? 'Asia/Tehran'; },
+      plainDateTimeISO(tz) { return tz ?? 'Asia/Tehran'; },
+      plainDateISO(tz) { return tz ?? 'Asia/Tehran'; },
+      plainTimeISO(tz) { return tz ?? 'Asia/Tehran'; },
+    } }`);
+    spoof = installSpoof(runInContext('globalThis', ctx));
+    spoof.setConfig(NY);
+    expect(run('Temporal.Now.timeZoneId()')).toBe('America/New_York');
+    for (const f of ['zonedDateTimeISO', 'plainDateTimeISO', 'plainDateISO', 'plainTimeISO']) {
+      expect(run(`Temporal.Now.${f}()`)).toBe('America/New_York');
+      expect(run(`Temporal.Now.${f}('UTC')`)).toBe('UTC');
+    }
+    spoof.setConfig({ ...NY, shields: { ...SHIELD_DEFAULTS, timezone: false } });
+    expect(run('Temporal.Now.timeZoneId()')).toBe('Asia/Tehran');
+    expect(run('Temporal.Now.plainDateISO()')).toBe('Asia/Tehran');
+  });
+});

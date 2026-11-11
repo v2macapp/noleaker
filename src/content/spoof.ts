@@ -281,6 +281,31 @@ export function installSpoof(g: any): { setConfig(config: SpoofConfig | null): v
     },
   });
 
+  // ---- Temporal.Now (B8): it reads the system zone directly ----------------------------
+  const Now: any = g.Temporal?.Now;
+  if (Now) {
+    patch(
+      Now,
+      'timeZoneId',
+      (orig) =>
+        function (this: any) {
+          return on() ? tz() : orig.call(this);
+        },
+    );
+    for (const name of ['zonedDateTimeISO', 'plainDateTimeISO', 'plainDateISO', 'plainTimeISO']) {
+      if (typeof Now[name] !== 'function') continue;
+      patch(
+        Now,
+        name,
+        (orig) =>
+          function (this: any, ...args: any[]) {
+            if (on() && args[0] === undefined) args = [tz(), ...args.slice(1)];
+            return orig.apply(this, args);
+          },
+      );
+    }
+  }
+
   // ---- navigator.language(s) ----------------------------------------------------------
   const NavProto: any = g.Navigator?.prototype ?? g.WorkerNavigator?.prototype;
   if (NavProto) {

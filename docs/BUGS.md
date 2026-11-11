@@ -20,7 +20,7 @@ Not audited: `src/leaktest/`, `src/audit/`, and the e2e suites.
 | [ ]  | B5  | Medium   | Stops working    | Strict mode kills every page worker on any config change           |
 | [ ]  | B6  | High     | Captcha          | Startup state: UTC, en-US and refused workers until config arrives |
 | [ ]  | B7  | High     | Captcha          | New `about:blank` iframes disagree with their parent page          |
-| [ ]  | B8  | High     | Captcha and leak | `Temporal` is not patched                                          |
+| [x]  | B8  | High     | Captcha and leak | `Temporal` is not patched                                          |
 | [ ]  | B9  | Medium   | Captcha          | Extension URLs show in error stacks unless Stealth is on           |
 | [ ]  | B10 | Medium   | Captcha, sites   | The first worker on a CSP site is lost                             |
 | [ ]  | B11 | Medium   | Captcha, sites   | Workers on Trusted Types sites probably break (unconfirmed)        |

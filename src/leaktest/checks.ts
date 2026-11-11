@@ -391,9 +391,16 @@ async function collectInPage() {
   } catch {
     iceTransportPolicy = null;
   }
+  // Temporal reads the system zone on its own path (B8); a mismatch shows up in the tz value.
+  const temporalTz: string | undefined = (
+    globalThis as { Temporal?: { Now: { timeZoneId(): string } } }
+  ).Temporal?.Now.timeZoneId();
   return {
     now,
-    tz: resolved.timeZone,
+    tz:
+      temporalTz && temporalTz !== resolved.timeZone
+        ? `${resolved.timeZone}, Temporal ${temporalTz}`
+        : resolved.timeZone,
     locale: resolved.locale,
     offset: new Date(now).getTimezoneOffset(),
     dateString: new Date(now).toString(),
