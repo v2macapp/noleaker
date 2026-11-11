@@ -55,6 +55,17 @@ window.first = Intl.DateTimeFormat().resolvedOptions().timeZone;
 setTimeout(() => { window.later = Intl.DateTimeFormat().resolvedOptions().timeZone; document.title = 'done'; }, 1500);
 </script>`;
 const ZONE = 'Pacific/Kiritimati';
+
+// What the first inline script and an iframe it creates at once see (B6, B7).
+const STARTUP = `<!doctype html><title>startup</title><script>
+const frame = document.createElement('iframe');
+document.documentElement.append(frame);
+window.result = {
+  page: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  frame: frame.contentWindow.Intl.DateTimeFormat().resolvedOptions().timeZone,
+};
+document.title = 'done';
+</script>`;
 const REAL = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 // Cloudflare allows blob workers but blocks importing blob scripts inside them.
@@ -68,7 +79,14 @@ function start() {
   if (Intl.DateTimeFormat().resolvedOptions().timeZone !== '${ZONE}') return setTimeout(start, 20);
   const source = new Blob(['postMessage({ zone: Intl.DateTimeFormat().resolvedOptions().timeZone, href: location.href });'], { type: 'text/javascript' });
   window.originalUrl = URL.createObjectURL(source);
-  const worker = new Worker(policy ? policy.createScriptURL(window.originalUrl) : window.originalUrl);
+  let worker;
+  try {
+    worker = new Worker(policy ? policy.createScriptURL(window.originalUrl) : window.originalUrl);
+  } catch (e) {
+    // The startup state refuses workers until the config arrives, even when the zone is already right (B6).
+    if (e.name === 'SecurityError') return setTimeout(start, 20);
+    throw e;
+  }
   worker.onmessage = (e) => { clearTimeout(timeout); finish(e.data); worker.terminate(); };
   worker.onerror = (e) => { clearTimeout(timeout); finish({ error: e.message }); worker.terminate(); };
   URL.revokeObjectURL(window.originalUrl);
@@ -90,7 +108,8 @@ function server(body: string) {
             : ''),
       );
       res.end(BLOB_WORKER);
-    } else res.end(req.url?.startsWith('/forge') ? FORGE : body);
+    } else if (req.url?.startsWith('/startup')) res.end(STARTUP);
+    else res.end(req.url?.startsWith('/forge') ? FORGE : body);
   });
   return s;
 }
@@ -310,6 +329,8 @@ test('captcha frames: neutral in Strict from the first script, untouched in Comp
   const strict = await captchaZones();
   assert.ok(['UTC', ZONE].includes(strict.first), `Strict first parse saw ${strict.first}`);
   assert.equal(strict.later, ZONE);
+  // B6: a later load of the same origin starts with the identity, not UTC.
+  assert.deepEqual(await captchaZones(), { first: ZONE, later: ZONE });
 
   await patchState(`{ routingMode: 'compatibility' }`);
   await until('captcha script removed', async () => (await captchaScript()) === 0);
@@ -317,6 +338,21 @@ test('captcha frames: neutral in Strict from the first script, untouched in Comp
   await patchState(`{ overrides: { ...s.overrides, timezone: null } }`); // later tests expect the defaults
   await verified();
   assert.ok(captcha.hits >= 2);
+});
+
+test('startup: a reload and a new iframe see the spoofed zone from the first script (B6, B7)', async () => {
+  await patchState(`{ overrides: { ...s.overrides, timezone: '${ZONE}' } }`);
+  await verified();
+  const load = async () => {
+    await driver.get(`${url}startup`);
+    await until('startup page finished', async () => (await driver.getTitle()) === 'done');
+    return driver.executeScript<{ page: string; frame: string }>('return window.result;');
+  };
+  const first = await load();
+  assert.equal(first.frame, first.page, 'a new iframe agrees with its page');
+  assert.deepEqual(await load(), { page: ZONE, frame: ZONE });
+  await patchState(`{ overrides: { ...s.overrides, timezone: null } }`);
+  await verified();
 });
 
 test('turning the proxy off during a health check stays off', async () => {

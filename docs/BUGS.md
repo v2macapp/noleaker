@@ -19,7 +19,7 @@ Not audited: `src/leaktest/`, `src/audit/`, and the e2e suites.
 | [x]  | B4  | High     | Stops working    | A failed ipwho.is lookup wipes the timezone                        |
 | [ ]  | B5  | Medium   | Stops working    | Strict mode kills every page worker on any config change           |
 | [ ]  | B6  | High     | Captcha          | Startup state: UTC, en-US and refused workers until config arrives |
-| [ ]  | B7  | High     | Captcha          | New `about:blank` iframes disagree with their parent page          |
+| [x]  | B7  | High     | Captcha          | New `about:blank` iframes disagree with their parent page          |
 | [x]  | B8  | High     | Captcha and leak | `Temporal` is not patched                                          |
 | [ ]  | B9  | Medium   | Captcha          | Extension URLs show in error stacks unless Stealth is on           |
 | [ ]  | B10 | Medium   | Captcha, sites   | The first worker on a CSP site is lost                             |
@@ -179,6 +179,14 @@ noleaker.`, and `enqueue` in `src/background/monitor.ts:24-32` turns the guard o
   observe already (timezone, locale, the per-site seed), but the whitelist must stay out of it (it
   already is: `bridge.ts:121`).
 - **Depends on:** nothing, but B7 uses the same mechanism.
+- **Status (partly fixed):** `src/content/startup.ts`. The bridge keeps the last active timezone,
+  locale and languages in `sessionStorage`; `main.js` starts with them. Because the page can write
+  that key, the cache can only choose spoofed values. It never turns spoofing off, and anything
+  invalid gives the neutral start. So the first load of an origin in a tab, and pages with
+  noleaker off or whitelisted, still start neutral. Workers, Service Worker registration and
+  geolocation are still refused until the config arrives: a worker needs the prelude, which
+  cannot come from page-writable storage. That part needs the deferred worker of B10.
+  Checked in Chrome by the e2e test `startup: a reload and a new iframe …`.
 
 ### B7. New `about:blank` iframes disagree with their parent page
 
@@ -196,6 +204,9 @@ noleaker.`, and `enqueue` in `src/background/monitor.ts:24-32` turns the guard o
   new `about:blank` frame before the parent can touch it; if not, the parent realm has to patch the
   child (hook the `contentWindow` and `contentDocument` getters) before handing it out.
 - **Test:** e2e assertion that `immediateIframe` equals the parent's values.
+- **Status (fixed for Chrome):** same-origin frames share `sessionStorage`, so a new frame starts
+  with the B6 cache, the same identity as its parent. The Chrome e2e test confirms that a frame read
+  at once from the first inline script matches its page. Not yet checked in Firefox.
 
 ### B8. `Temporal` is not patched
 

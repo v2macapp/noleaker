@@ -12,7 +12,8 @@ import { installVoices } from './voices';
 import { installWebRtc } from './webrtc';
 import { installWorkers } from './workers';
 import { ackName, HANDSHAKE_EVENT, randomName, type ConfigMessage, type Hello } from './events';
-import { INACTIVE_CONFIG, type SpoofConfig } from '../shared/spoof-config';
+import type { SpoofConfig } from '../shared/spoof-config';
+import { startupConfig } from './startup';
 
 let live: SpoofConfig | null = null;
 let prelude: string | null = null;
@@ -30,9 +31,10 @@ const keyboard = installKeyboard(globalThis);
 const webrtc = installWebRtc(globalThis, pending);
 const audio = installAudio(globalThis);
 const rects = installRects(globalThis);
-// Until storage delivery completes, covered location/language APIs use public neutral values.
-// This also briefly applies on disabled/whitelisted pages; the first valid config restores them.
-const startup = { ...INACTIVE_CONFIG, active: true, timezone: 'UTC' };
+// Until storage delivery completes, covered location/language APIs use the identity this origin
+// last had in this tab, or public neutral values. The neutral start also briefly applies on
+// disabled/whitelisted pages; the first valid config restores them.
+const startup = startupConfig();
 spoof.setConfig(startup);
 for (const shield of [fonts, voices, keyboard]) shield.setConfig(startup);
 const workers = installWorkers(globalThis, {

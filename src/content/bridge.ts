@@ -7,6 +7,7 @@ import { scopedSeed } from '../shared/site-seed';
 import { CONFIG_KEY, INACTIVE_CONFIG, PRELUDE_KEY, type SpoofConfig } from '../shared/spoof-config';
 import { NO_FINGERPRINT } from '../shared/fingerprint';
 import { sendMessage } from '../shared/messages';
+import { rememberStartup } from './startup';
 import { ackName, HANDSHAKE_EVENT, type ConfigMessage, type Hello } from './events';
 
 let current: SpoofConfig = INACTIVE_CONFIG;
@@ -119,6 +120,7 @@ async function push(retry = false): Promise<void> {
   // The prelude is only useful where something is spoofed; skip the ~30 KB elsewhere.
   // Whitelist is needed only by the isolated bridge; never disclose it to page code.
   config.whitelist = [];
+  rememberStartup(config);
   const message: ConfigMessage = { config, prelude: config.active ? prelude : null };
   if (name) {
     acked = false;
