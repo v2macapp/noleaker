@@ -11,6 +11,17 @@ export const CAPTCHA_DOMAINS = [
   'funcaptcha.com',
   'geetest.com',
   'captcha-delivery.com',
+  // B12: each registrable domain below belongs to the provider. Arkose on customer domains
+  // (for example a site's own subdomain) cannot be listed.
+  'awswaf.com',
+  'px-cdn.net',
+  'px-cloud.net',
+  'perimeterx.net',
+  'smartcaptcha.cloud.yandex.ru',
+  'smartcaptcha.yandexcloud.net',
+  'frcapi.com',
+  'friendlycaptcha.com',
+  'mtcaptcha.com',
 ] as const;
 
 /** reCAPTCHA also lives on a path of www.google.com, which a domain list cannot express. */

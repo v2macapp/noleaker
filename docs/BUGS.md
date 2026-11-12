@@ -24,7 +24,7 @@ Not audited: `src/leaktest/`, `src/audit/`, and the e2e suites.
 | [x]  | B9  | Medium   | Captcha          | Extension URLs show in error stacks unless Stealth is on           |
 | [ ]  | B10 | Medium   | Captcha, sites   | The first worker on a CSP site is lost                             |
 | [ ]  | B11 | Medium   | Captcha, sites   | Workers on Trusted Types sites probably break (unconfirmed)        |
-| [ ]  | B12 | Low      | Captcha          | The captcha provider list is short                                 |
+| [x]  | B12 | Low      | Captcha          | The captcha provider list is short                                 |
 | [x]  | B13 | Medium   | Options          | Routing-list update fails after clicking a sidebar link            |
 | [x]  | B14 | Low      | Spoofing         | Dates with US zone abbreviations are shifted                       |
 | [x]  | B15 | Low      | Options          | Unsaved text in the options page is overwritten                    |
@@ -286,6 +286,13 @@ noleaker.`, and `enqueue` in `src/background/monitor.ts:24-32` turns the guard o
 - **Fix:** add the missing domains to `CAPTCHA_DOMAINS` and to `exclude_matches` in both manifests
   (the two must stay equal; a test that compares them would stop them drifting).
 - **Note:** confirm each domain against the provider's documentation before adding it.
+- **Status:** added `awswaf.com`, `px-cdn.net`, `px-cloud.net`, `perimeterx.net`,
+  `smartcaptcha.cloud.yandex.ru`, `smartcaptcha.yandexcloud.net`, `frcapi.com`,
+  `friendlycaptcha.com` and `mtcaptcha.com`. Checked 2026-11-12: Friendly Captcha's CSP guide names
+  `*.frcapi.com`, and Yandex's quickstart loads `smartcaptcha.cloud.yandex.ru/captcha.js`. The
+  pages for AWS WAF, HUMAN and MTCaptcha could not be read. Their whole registrable domains are
+  the provider's own, so excluding them affects nothing else. Arkose on customer domains is not
+  listed. `tests/captcha-script.test.ts` already keeps both manifests equal to the list.
 
 ---
 
