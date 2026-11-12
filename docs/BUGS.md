@@ -15,7 +15,7 @@ Not audited: `src/leaktest/`, `src/audit/`, and the e2e suites.
 | ---- | --- | -------- | ---------------- | ------------------------------------------------------------------ |
 | [x]  | B1  | High     | Stops working    | Another extension holding a privacy setting blocks all browsing    |
 | [x]  | B2  | High     | Stops working    | One failed exit check trips the kill switch                        |
-| [ ]  | B3  | Medium   | Stops working    | Browser start blocks restored tabs                                 |
+| [x]  | B3  | Medium   | Stops working    | Browser start blocks restored tabs                                 |
 | [x]  | B4  | High     | Stops working    | A failed ipwho.is lookup wipes the timezone                        |
 | [x]  | B5  | Medium   | Stops working    | Strict mode kills every page worker on any config change           |
 | [ ]  | B6  | High     | Captcha          | Startup state: UTC, en-US and refused workers until config arrives |
@@ -108,6 +108,10 @@ noleaker.`, and `enqueue` in `src/background/monitor.ts:24-32` turns the guard o
   the previous PAC is still in effect and controlled by noleaker.
 - **Decision needed:** (b) trusts the state left by the last session; (a) keeps fail-closed and
   only repairs the tabs. (a) is the safer choice.
+- **Status:** option (a), `src/background/startup-tabs.ts`. Main-frame load failures in the
+  worker's first minute (except aborts) are recorded. When `onStartup` has finished and protection
+  is up (no error, no kill switch), those tabs are reloaded once. Not tested with a real browser
+  restart.
 
 ### B4. A failed ipwho.is lookup wipes the timezone
 

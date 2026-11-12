@@ -8,6 +8,7 @@ import type { State } from '../shared/types';
 import { removeLegacyFlow } from './legacy';
 import { syncProtection } from './protection';
 import { scheduleUpdates } from './iranlist';
+import { takeStartupErrors } from './startup-tabs';
 import { setGuard } from '@platform/guard';
 import { forgetAppliedPac, syncProxy } from '@platform/proxy';
 
@@ -222,6 +223,11 @@ export function onStartup(): void {
     await chrome.storage.session.remove(KEY); // force a fresh detection
     await forgetAppliedPac();
     await handleChange();
+    const failed = takeStartupErrors();
+    const s = await getState();
+    // The guard is off again: give restored tabs the load it blocked (B3).
+    if (s.enabled && !s.protectionError && !s.killSwitchActive)
+      for (const tabId of failed) void chrome.tabs.reload(tabId).catch(() => undefined);
   });
   ensureAlarms();
 }
