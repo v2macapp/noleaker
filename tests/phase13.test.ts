@@ -407,8 +407,12 @@ describe.skipIf(!existsSync('dist/chrome/content/bridge.js'))(
       const target = new EventTarget();
       const timers: (() => void)[] = [];
       const sent: unknown[] = [];
+      const violations: ((e: unknown) => void)[] = [];
       const win: Record<string, unknown> = {
-        addEventListener: target.addEventListener.bind(target),
+        addEventListener: (type: string, fn: (e: unknown) => void, ...rest: []) =>
+          type === 'securitypolicyviolation'
+            ? violations.push(fn)
+            : target.addEventListener(type, fn as EventListener, ...rest),
         removeEventListener: target.removeEventListener.bind(target),
         dispatchEvent: target.dispatchEvent.bind(target),
       };
@@ -466,6 +470,7 @@ describe.skipIf(!existsSync('dist/chrome/content/bridge.js'))(
         target,
         timers,
         sent,
+        violation: (e: object) => violations.forEach((fn) => fn(e)),
         run: () => runInContext(readFileSync('dist/chrome/content/bridge.js', 'utf8'), ctx),
       };
     }
@@ -521,12 +526,11 @@ describe.skipIf(!existsSync('dist/chrome/content/bridge.js'))(
       const seen = preludes(first);
       await settle(first);
       expect(seen.at(-1)).toBe('/*p*/');
-      first.target.dispatchEvent(
-        Object.assign(new Event('securitypolicyviolation'), {
-          violatedDirective: 'worker-src',
-          blockedURI: 'blob',
-        }),
-      );
+      const event = { isTrusted: true, violatedDirective: 'worker-src', blockedURI: 'blob' };
+      first.violation({ ...event, isTrusted: false }); // a page's own fake event
+      await new Promise((r) => setTimeout(r, 20));
+      expect(stored.blobBlockedOrigins).toBeUndefined();
+      first.violation(event);
       await new Promise((r) => setTimeout(r, 20));
       expect(stored.blobBlockedOrigins).toHaveLength(1);
       const next = boot({ mainPresent: true, stored });

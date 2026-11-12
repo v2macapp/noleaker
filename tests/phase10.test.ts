@@ -347,7 +347,7 @@ describe('Worker wrapper (page side)', () => {
   it('stops injecting after a CSP violation on blob workers', () => {
     const env = make();
     env.run(
-      'listeners.securitypolicyviolation({ violatedDirective: "worker-src", blockedURI: "blob" })',
+      'listeners.securitypolicyviolation({ isTrusted: true, violatedDirective: "worker-src", blockedURI: "blob" })',
     );
     expect(started(env, 'new Worker("w.js")').url).toBe('w.js');
   });

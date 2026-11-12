@@ -31,6 +31,7 @@ let blobBlocked = false;
 addEventListener('securitypolicyviolation', (e) => {
   if (
     blobBlocked ||
+    !e.isTrusted || // a page could fake one to switch off worker spoofing on its origin
     !/^(worker|child|script)-src/.test(e.violatedDirective) ||
     !String(e.blockedURI).startsWith('blob')
   )

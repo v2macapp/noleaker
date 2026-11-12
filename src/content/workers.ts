@@ -96,6 +96,7 @@ export function installWorkers(g: any, deps: WorkerDeps): { refresh(): void } | 
   // A CSP without blob: in worker-src would break our wrapper; stop injecting once seen.
   g.addEventListener?.('securitypolicyviolation', (e: any) => {
     if (
+      e.isTrusted &&
       /^(worker|child|script)-src/.test(e.violatedDirective) &&
       String(e.blockedURI).startsWith('blob')
     ) {
