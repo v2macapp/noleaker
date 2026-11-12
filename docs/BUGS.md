@@ -18,7 +18,7 @@ Not audited: `src/leaktest/`, `src/audit/`, and the e2e suites.
 | [x]  | B3  | Medium   | Stops working    | Browser start blocks restored tabs                                 |
 | [x]  | B4  | High     | Stops working    | A failed ipwho.is lookup wipes the timezone                        |
 | [x]  | B5  | Medium   | Stops working    | Strict mode kills every page worker on any config change           |
-| [ ]  | B6  | High     | Captcha          | Startup state: UTC, en-US and refused workers until config arrives |
+| [x]  | B6  | High     | Captcha          | Startup state: UTC, en-US and refused workers until config arrives |
 | [x]  | B7  | High     | Captcha          | New `about:blank` iframes disagree with their parent page          |
 | [x]  | B8  | High     | Captcha and leak | `Temporal` is not patched                                          |
 | [x]  | B9  | Medium   | Captcha          | Extension URLs show in error stacks unless Stealth is on           |
@@ -183,13 +183,15 @@ noleaker.`, and `enqueue` in `src/background/monitor.ts:24-32` turns the guard o
   observe already (timezone, locale, the per-site seed), but the whitelist must stay out of it (it
   already is: `bridge.ts:121`).
 - **Depends on:** nothing, but B7 uses the same mechanism.
-- **Status (partly fixed):** `src/content/startup.ts`. The bridge keeps the last active timezone,
+- **Status:** `src/content/startup.ts`. The bridge keeps the last active timezone,
   locale and languages in `sessionStorage`; `main.js` starts with them. Because the page can write
   that key, the cache can only choose spoofed values. It never turns spoofing off, and anything
   invalid gives the neutral start. So the first load of an origin in a tab, and pages with
-  noleaker off or whitelisted, still start neutral. Workers, Service Worker registration and
-  geolocation are still refused until the config arrives: a worker needs the prelude, which
-  cannot come from page-writable storage. That part needs the deferred worker of B10.
+  noleaker off or whitelisted, still start neutral. Geolocation calls, geolocation permission
+  queries and Service Worker registrations made during startup now wait for the config and then
+  follow it, instead of failing. Still refused during startup: `new Worker()` and
+  `new SharedWorker()`. They are synchronous, and a worker needs the prelude, which cannot come
+  from page-writable storage. Fixing that needs the deferred-worker facade that B10 left out.
   Checked in Chrome by the e2e test `startup: a reload and a new iframe …`.
   The page can see the key, which tells it noleaker is installed. So with Stealth on nothing is
   stored, and those pages keep the neutral start.

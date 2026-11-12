@@ -24,7 +24,10 @@ export function installGeolocation(
   { random = Math.random, pending = false }: GeolocationOptions = {},
 ): { setConfig(config: SpoofConfig | null): void } {
   const { patch, define, method } = createNative(g);
-  let denied = pending;
+  let denied = false;
+  // B6: calls made before the config arrives wait for it, then run as if made just after it.
+  // shortcut: a waiting call ignores its `timeout` option; add a timer if a site relies on it.
+  let waiting: (() => void)[] | null = pending ? [] : null;
   let point: { latitude: number; longitude: number } | null = null;
   const nativeWatches = new Map<number, () => void>();
   let stopSyntheticWatches = () => {};
@@ -94,6 +97,11 @@ export function installGeolocation(
       'getCurrentPosition',
       (orig) =>
         function (this: any, success: unknown, ...rest: unknown[]) {
+          if (waiting) {
+            requireCallback(success, 'getCurrentPosition');
+            waiting.push(() => proto.getCurrentPosition.call(this, success, ...rest));
+            return;
+          }
           if (denied) {
             requireCallback(success, 'geolocation');
             const error = rest[0];
@@ -134,6 +142,19 @@ export function installGeolocation(
       'watchPosition',
       (orig) =>
         function (this: any, success: unknown, ...rest: unknown[]) {
+          if (waiting) {
+            requireCallback(success, 'watchPosition');
+            const id = nextWatchId--;
+            let cleared = false;
+            nativeWatches.set(id, () => void (cleared = true));
+            waiting.push(() => {
+              nativeWatches.delete(id);
+              if (cleared) return;
+              const real = proto.watchPosition.call(this, success, ...rest);
+              nativeWatches.set(id, () => proto.clearWatch.call(this, real));
+            });
+            return id;
+          }
           if (denied) {
             requireCallback(success, 'geolocation');
             const error = rest[0];
@@ -202,6 +223,10 @@ export function installGeolocation(
       'query',
       (orig) =>
         function (this: any, descriptor: any) {
+          if (waiting && descriptor?.name === 'geolocation')
+            return new g.Promise((resolve: (v: unknown) => void) =>
+              waiting!.push(() => resolve(permissionsProto.query.call(this, descriptor))),
+            );
           const result = orig.call(this, descriptor);
           if ((!point && !denied) || descriptor?.name !== 'geolocation') return result;
           return result.then((status: any) => {
@@ -231,6 +256,9 @@ export function installGeolocation(
         nativeWatches.clear();
       }
       if (!point) stopSyntheticWatches();
+      const queued = waiting ?? [];
+      waiting = null;
+      for (const call of queued) call();
     },
   };
 }

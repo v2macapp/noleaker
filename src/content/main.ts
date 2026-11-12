@@ -21,6 +21,8 @@ let prelude: string | null = null;
 // neutral startup state below never reaches a challenge in Compatibility, where it would loop.
 let pending = true;
 let workerConfig: SpoofConfig | null = null;
+let configured!: () => void;
+const ready = new Promise<void>((resolve) => (configured = resolve));
 
 const spoof = installSpoof(globalThis);
 const fingerprint = installFingerprint(globalThis);
@@ -40,6 +42,7 @@ for (const shield of [fonts, voices, keyboard]) shield.setConfig(startup);
 const workers = installWorkers(globalThis, {
   config: () => workerConfig,
   pending: () => pending,
+  ready,
   prelude: () => prelude,
   gpu: () => fingerprint.currentGpu(),
 });
@@ -47,6 +50,7 @@ const workers = installWorkers(globalThis, {
 function apply(config: SpoofConfig | null): void {
   if (!config || typeof config.active !== 'boolean' || !config.shields) return;
   pending = false;
+  configured();
   workerConfig = config;
   workers?.refresh();
   // Stealth mode: strict function shapes (stacks are always cleaned). Independent of whether spoofing is on.

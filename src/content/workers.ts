@@ -10,6 +10,8 @@ export interface WorkerDeps {
   prelude(): string | null;
   gpu(): GpuModel | null;
   pending?(): boolean;
+  /** Settles when the first config arrives. */
+  ready?: Promise<unknown>;
 }
 
 const REVOKE_AFTER_MS = 60_000;
@@ -41,6 +43,9 @@ export function installWorkers(g: any, deps: WorkerDeps): { refresh(): void } | 
       'register',
       (orig) =>
         function (this: any, ...args: any[]) {
+          // B6: wait for the config rather than refusing; strict mode still refuses after it.
+          if (deps.pending?.() && deps.ready)
+            return deps.ready.then(() => sw.register.apply(this, args));
           if (restricted())
             return Promise.reject(
               new g.DOMException(

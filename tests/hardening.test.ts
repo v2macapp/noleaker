@@ -236,7 +236,7 @@ describe('page configuration and realm restrictions', () => {
     expect(await scopedSeed(profile.id, 'b.github.io')).not.toBe(a);
     expect(await scopedSeed('another-profile', 'a.github.io')).not.toBe(a);
   });
-  it('blocks worker creation before config and unsupported realms in strict mode', () => {
+  it('blocks worker creation before config and unsupported realms in strict mode', async () => {
     class Worker {
       terminate() {}
     }
@@ -256,16 +256,22 @@ describe('page configuration and realm restrictions', () => {
       location: { origin: 'https://example.com', href: 'https://example.com/' },
     });
     let pending = true;
+    let configured!: () => void;
     installWorkers(g, {
       config: () => buildSpoofConfig(state),
       prelude: () => null,
       gpu: () => null,
       pending: () => pending,
+      ready: new Promise<void>((r) => (configured = r)),
     });
+    // B6: a registration during startup waits, then follows the config (strict here: refused).
+    const early = new g.ServiceWorkerContainer().register();
     expect(() => new g.Worker()).toThrow('cannot be protected');
     pending = false;
     expect(() => new g.SharedWorker()).toThrow('cannot be protected');
     expect(() => new g.Worker()).toThrow('cannot be protected');
+    configured();
+    await expect(early).rejects.toThrow('blocked in strict mode');
     return expect(new g.ServiceWorkerContainer().register()).rejects.toThrow(
       'blocked in strict mode',
     );
@@ -312,13 +318,45 @@ describe('early sensitive APIs', () => {
       },
     );
     expect(g.nativeCalls).toBe(0);
-    expect(errorCode).toBe(1);
+    expect(errorCode).toBe(0); // it waits for the config instead of failing (B6)
     shield.setConfig(null);
-    new g.Geolocation().getCurrentPosition((p: unknown) => results.push(p));
-    expect(g.nativeCalls).toBe(1);
+    expect(g.nativeCalls).toBe(1); // the waiting call runs with that config
     shield.setConfig(buildSpoofConfig(state));
     g.callback({ coords: { latitude: 35, longitude: 51 } });
     expect(results).toEqual([]);
+  });
+  it('a watch or permission query made during startup waits for the config (B6)', async () => {
+    const g = runInNewContext('globalThis', { setTimeout: () => 1, clearTimeout: () => {} });
+    const watched: unknown[] = [];
+    const cleared: unknown[] = [];
+    g.Geolocation = class {
+      getCurrentPosition() {}
+      watchPosition(fn: unknown) {
+        watched.push(fn);
+        return 7;
+      }
+      clearWatch(id: unknown) {
+        cleared.push(id);
+      }
+    };
+    g.Permissions = class {
+      query() {
+        return Promise.resolve({ state: 'prompt' });
+      }
+    };
+    const shield = installGeolocation(g, { pending: true });
+    const geo = new g.Geolocation();
+    const id = geo.watchPosition(() => undefined);
+    const gone = geo.watchPosition(() => undefined);
+    geo.clearWatch(gone); // cleared before the config came: never starts
+    const state = new g.Permissions().query({ name: 'geolocation' });
+    expect(id).toBeLessThan(0);
+    expect(watched).toHaveLength(0);
+    shield.setConfig(null);
+    expect(watched).toHaveLength(1);
+    await expect(state).resolves.toMatchObject({ state: 'prompt' });
+    geo.clearWatch(id);
+    expect(cleared).toEqual([7]);
   });
   it('cancels native watches on strict activation without reviving them after disabling', () => {
     const g = runInNewContext('globalThis', { setTimeout: () => 1, clearTimeout: () => {} });
