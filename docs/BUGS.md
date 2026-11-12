@@ -32,7 +32,7 @@ Not audited: `src/leaktest/`, `src/audit/`, and the e2e suites.
 | [x]  | B17 | Low      | Status           | False "Uncertain" exit on dual-stack servers (unconfirmed)         |
 | [x]  | B18 | Low      | Spoofing         | Spoofing starts before the proxy is verified (manual country)      |
 | [x]  | B19 | Low      | Sites            | Relative URLs fail inside wrapped workers                          |
-| [ ]  | B20 | Low      | Spoofing         | Whitelist: header rule and page script disagree in frames          |
+| [x]  | B20 | Low      | Spoofing         | Whitelist: header rule and page script disagree in frames          |
 
 Suggested order: B1, B2, B4 (the "stops working" reports), then B13 and B14 (one-line fixes), then
 B8, B6, B7 (captcha), then the rest.
@@ -384,6 +384,10 @@ noleaker.`, and `enqueue` in `src/background/monitor.ts:24-32` turns the guard o
 - **Fix:** if `declarativeNetRequest` in the minimum supported browser versions has a top-level
   domain condition, use it for the whitelist; check the current API documentation first. Otherwise
   record it as a known limit.
+- **Status (known limit):** Chrome added `topDomains` / `excludedTopDomains` in Chrome 145
+  (checked 2026-11-12); noleaker supports Chrome 120+, which rejects rules with unknown keys. Noted
+  in `rules.ts`. Upgrade: when the minimum reaches 145, add `excludedTopDomains: whitelist` to the
+  language and header rules.
 
 ---
 

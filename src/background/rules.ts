@@ -71,6 +71,8 @@ export const ALL_TYPES = (
 ) as chrome.declarativeNetRequest.ResourceType[];
 
 /** Requests to these domains, and requests started by pages on them, are left alone. */
+// shortcut: a third-party frame on a whitelisted site still gets the spoofed headers (B20); add
+// excludedTopDomains for the whitelist once the minimum Chrome is 145.
 const exclude = (domains: readonly string[]) =>
   domains.length > 0 ? { excludedRequestDomains: domains, excludedInitiatorDomains: domains } : {};
 
