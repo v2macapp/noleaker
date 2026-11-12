@@ -363,6 +363,7 @@ describe('worker prelude (worker side)', () => {
     }
     class WebGLRenderingContext { getParameter(p) { return 'real-' + p; } }
     class XMLHttpRequest { open(m, u) { (globalThis.opened ||= []).push(u); } }
+    globalThis.Request = class Request { constructor(u) { this.url = String(u); } };
     Object.setPrototypeOf(globalThis, WorkerGlobalScope.prototype);
     Object.assign(globalThis, { WorkerLocation, WorkerGlobalScope, WorkerNavigator, WebGLRenderingContext, XMLHttpRequest });
     globalThis.navigator = new WorkerNavigator();
@@ -401,6 +402,7 @@ describe('worker prelude (worker side)', () => {
     expect(env.run('fetched')).toEqual(['https://site.test/app/data.json']);
     env.run('new XMLHttpRequest().open("GET", "/root.json")');
     expect(env.run('opened')).toEqual(['https://site.test/root.json']);
+    expect(env.run('new Request("./x").url')).toBe('https://site.test/app/x'); // B19
   });
   it('leaves other realms alone when installWorkerBase is not called (sanity)', () => {
     const env = newContext(setup, { URL });

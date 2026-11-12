@@ -93,7 +93,9 @@ export function installWorkerBase(g: any, base: string): void {
     );
   }
 
-  for (const name of ['Worker', 'SharedWorker', 'WebSocket', 'EventSource']) {
+  // shortcut: dynamic import('./x.js') cannot be patched and resolves against the blob URL; a
+  // worker that needs it must be started natively (shields.workers off for the site).
+  for (const name of ['Worker', 'SharedWorker', 'WebSocket', 'EventSource', 'Request']) {
     if (typeof g[name] === 'function') {
       patchCtor(g, name, g[name], (args) => [resolve(args[0]), ...args.slice(1)]);
     }

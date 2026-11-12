@@ -31,7 +31,7 @@ Not audited: `src/leaktest/`, `src/audit/`, and the e2e suites.
 | [ ]  | B16 | Medium   | Sites            | Persian fonts can be stripped permanently                          |
 | [x]  | B17 | Low      | Status           | False "Uncertain" exit on dual-stack servers (unconfirmed)         |
 | [x]  | B18 | Low      | Spoofing         | Spoofing starts before the proxy is verified (manual country)      |
-| [ ]  | B19 | Low      | Sites            | Relative URLs fail inside wrapped workers                          |
+| [x]  | B19 | Low      | Sites            | Relative URLs fail inside wrapped workers                          |
 | [ ]  | B20 | Low      | Spoofing         | Whitelist: header rule and page script disagree in frames          |
 
 Suggested order: B1, B2, B4 (the "stops working" reports), then B13 and B14 (one-line fixes), then
@@ -372,6 +372,8 @@ noleaker.`, and `enqueue` in `src/background/monitor.ts:24-32` turns the guard o
 - **Fix:** patch the `Request` constructor the same way. Dynamic `import()` cannot be patched; a
   worker that uses it needs the native fallback, which cannot be known in advance, so document it
   as a limit.
+- **Status:** `Request` is rebased. Dynamic `import()` stays a known limit (noted in
+  `worker-base.ts`): such a worker needs the worker shield off for that site.
 
 ### B20. Whitelist: header rule and page script disagree in frames
 
