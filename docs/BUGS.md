@@ -28,7 +28,7 @@ Not audited: `src/leaktest/`, `src/audit/`, and the e2e suites.
 | [x]  | B13 | Medium   | Options          | Routing-list update fails after clicking a sidebar link            |
 | [x]  | B14 | Low      | Spoofing         | Dates with US zone abbreviations are shifted                       |
 | [x]  | B15 | Low      | Options          | Unsaved text in the options page is overwritten                    |
-| [ ]  | B16 | Medium   | Sites            | Persian fonts can be stripped permanently                          |
+| [x]  | B16 | Medium   | Sites            | Persian fonts can be stripped permanently                          |
 | [x]  | B17 | Low      | Status           | False "Uncertain" exit on dual-stack servers (unconfirmed)         |
 | [x]  | B18 | Low      | Spoofing         | Spoofing starts before the proxy is verified (manual country)      |
 | [x]  | B19 | Low      | Sites            | Relative URLs fail inside wrapped workers                          |
@@ -355,6 +355,12 @@ noleaker.`, and `enqueue` in `src/background/monitor.ts:24-32` turns the guard o
   rect paths), or re-check when `document.fonts` fires `loadingdone`.
 - **Decision needed:** rewriting the style is what hides an installed font from width measurement
   of DOM text. Dropping it weakens the shield for that one technique.
+- **Status:** the rewrite stays (measurement stays hidden). Each declaration where a family was
+  hidden is remembered (weakly). On `document.fonts` `loadingdone`, and when the shield turns off
+  (also when the first config ends the startup state on a site that is off or whitelisted), the
+  value the filter now allows is written back. That happens only if the page has not written that
+  property again since. Not covered: a restored value loses `!important`. Also, the startup state
+  still uses the default shields, because the B6 cache stores no shields.
 
 ---
 

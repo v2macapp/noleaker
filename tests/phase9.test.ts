@@ -67,6 +67,7 @@ describe('fonts shield', () => {
       constructor() { this.faces = []; }
       forEach(cb) { this.faces.forEach(cb); }
       check(font) { this.last = font; return true; }
+      addEventListener(type, fn) { this['on' + type] = fn; }
     }
     Object.assign(globalThis, { CSSStyleDeclaration, Element, CanvasRenderingContext2D, FontFaceSet });
     globalThis.document = { fonts: new FontFaceSet() };
@@ -162,6 +163,22 @@ describe('fonts shield', () => {
     env.run(`document.fonts.faces.push({ family: '"Vazir"' })`);
     expect(ff('Vazir, Arial')).toBe('Vazir, Arial');
     expect(ff('Sahel, Arial')).toBe('Arial'); // a different one is still hidden
+  });
+  it('puts a hidden family back once the page loads it or the shield turns off (B16)', () => {
+    env.run(`
+      const set = (v) => { const s = new CSSStyleDeclaration(); s.fontFamily = v; return s; };
+      globalThis.early = set('Vazir, Arial');
+      globalThis.rewritten = set('Sahel, Arial');
+      globalThis.later = set('Sahel, Arial');
+      rewritten.fontFamily = 'Tahoma';
+      document.fonts.faces.push({ family: 'Vazir' });
+      document.fonts.onloadingdone();
+    `);
+    expect(env.run('early.fontFamily')).toBe('Vazir, Arial'); // the page's own font arrived
+    expect(env.run('later.fontFamily')).toBe('Arial'); // still hidden while the shield is on
+    fonts.setConfig(config({ fonts: false }));
+    expect(env.run('later.fontFamily')).toBe('Sahel, Arial');
+    expect(env.run('rewritten.fontFamily')).toBe('Tahoma'); // the page's newer value stays
   });
   it('is inert when the shield is off or paused', () => {
     fonts.setConfig(config({ fonts: false }));

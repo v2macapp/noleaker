@@ -64,6 +64,65 @@ export function installFonts(g: any): { setConfig(config: SpoofConfig | null): v
       .replace(/((?<![-\w])font\s*:\s*)([^;]+)/gi, (_m, head, list) => head + shorthand(list));
   };
 
+  // B16: a family hidden before the page loaded it (its @font-face not parsed yet, or the startup
+  // state on a site where the shield turns out off) is put back when fonts finish loading or the
+  // shield turns off, unless the page has changed that value since.
+  // shortcut: a restored value loses an !important priority; keep it if a site relies on that.
+  type Kind = 'fontFamily' | 'font';
+  const setters: Partial<Record<Kind, (this: any, v: unknown) => void>> = {};
+  const tracked = new WeakMap<object, Map<Kind, { raw: string; value: string; written: string }>>();
+  const refs = new Set<WeakRef<object>>();
+  const read = (decl: any, kind: Kind): string => {
+    try {
+      return String(Reflect.get(propsProto, kind, decl) ?? '');
+    } catch {
+      return '';
+    }
+  };
+  const filtered = (kind: Kind, raw: string) => (kind === 'font' ? shorthand(raw) : family(raw));
+  function note(decl: any, kind: Kind, raw: string, value: string): void {
+    if (!decl || typeof decl !== 'object') return;
+    let m = tracked.get(decl);
+    if (value === raw) return void m?.delete(kind);
+    if (!m) {
+      tracked.set(decl, (m = new Map()));
+      refs.add(new WeakRef(decl));
+    }
+    m.set(kind, { raw, value, written: read(decl, kind) });
+  }
+  /** The last font-family and font declarations of style text. */
+  function noteText(decl: any, text: string): void {
+    for (const [kind, re] of [
+      ['fontFamily', /font-family\s*:\s*([^;]+)/gi],
+      ['font', /(?<![-\w])font\s*:\s*([^;]+)/gi],
+    ] as const) {
+      let raw = '';
+      for (const m of text.matchAll(re)) raw = m[1]!.replace(/\s*!\s*important\s*$/i, '').trim();
+      note(decl, kind, raw, raw && filtered(kind, raw));
+    }
+  }
+  function restore(): void {
+    for (const ref of refs) {
+      const decl = ref.deref();
+      const m = decl && tracked.get(decl);
+      if (!m?.size) {
+        refs.delete(ref);
+        continue;
+      }
+      for (const [kind, e] of m) {
+        if (read(decl, kind) !== e.written) {
+          m.delete(kind); // the page wrote it again since
+          continue;
+        }
+        const value = filtered(kind, e.raw);
+        if (value === e.value) continue;
+        setters[kind]?.call(decl, value);
+        note(decl, kind, e.raw, value);
+      }
+    }
+  }
+  g.document?.fonts?.addEventListener?.('loadingdone', restore);
+
   const styleProto: any = g.CSSStyleDeclaration?.prototype;
   // Newer engines define the property accessors on a subclass (Chrome: CSSStyleProperties,
   // Firefox: CSS2Properties), not on CSSStyleDeclaration itself.
@@ -72,28 +131,29 @@ export function installFonts(g: any): { setConfig(config: SpoofConfig | null): v
       .map((c) => c?.prototype)
       .find((p) => p && Object.getOwnPropertyDescriptor(p, 'fontFamily')) ?? styleProto;
   if (styleProto) {
-    patchSetter(
-      propsProto,
-      'fontFamily',
-      (orig) =>
-        function (this: any, v: unknown) {
-          orig.call(this, family(String(v)));
-        },
-    );
-    patchSetter(
-      propsProto,
-      'font',
-      (orig) =>
-        function (this: any, v: unknown) {
-          orig.call(this, shorthand(String(v)));
-        },
-    );
+    patchSetter(propsProto, 'fontFamily', (orig) => {
+      setters.fontFamily = orig;
+      return function (this: any, v: unknown) {
+        const value = family(String(v));
+        orig.call(this, value);
+        note(this, 'fontFamily', String(v), value);
+      };
+    });
+    patchSetter(propsProto, 'font', (orig) => {
+      setters.font = orig;
+      return function (this: any, v: unknown) {
+        const value = shorthand(String(v));
+        orig.call(this, value);
+        note(this, 'font', String(v), value);
+      };
+    });
     patchSetter(
       styleProto,
       'cssText',
       (orig) =>
         function (this: any, v: unknown) {
           orig.call(this, styleText(String(v)));
+          noteText(this, String(v));
         },
     );
     patch(
@@ -102,13 +162,11 @@ export function installFonts(g: any): { setConfig(config: SpoofConfig | null): v
       (orig) =>
         function (this: any, name: unknown, value: unknown, ...rest: unknown[]) {
           const prop = String(name).toLowerCase();
-          const v =
-            prop === 'font-family'
-              ? family(String(value))
-              : prop === 'font'
-                ? shorthand(String(value))
-                : value;
-          return orig.call(this, name, v, ...rest);
+          const kind = prop === 'font-family' ? 'fontFamily' : prop === 'font' ? 'font' : null;
+          const v = kind ? filtered(kind, String(value)) : value;
+          const result = orig.call(this, name, v, ...rest);
+          if (kind) note(this, kind, String(value), v as string);
+          return result;
         },
     );
   }
@@ -120,11 +178,10 @@ export function installFonts(g: any): { setConfig(config: SpoofConfig | null): v
       'setAttribute',
       (orig) =>
         function (this: any, name: unknown, value: unknown) {
-          return orig.call(
-            this,
-            name,
-            String(name).toLowerCase() === 'style' ? styleText(String(value)) : value,
-          );
+          if (String(name).toLowerCase() !== 'style') return orig.call(this, name, value);
+          const result = orig.call(this, name, styleText(String(value)));
+          noteText(this.style, String(value));
+          return result;
         },
     );
   }
@@ -173,7 +230,9 @@ export function installFonts(g: any): { setConfig(config: SpoofConfig | null): v
   void define;
   return {
     setConfig(config) {
+      const was = on;
       on = !!config?.active && config.shields.fonts;
+      if (was && !on) restore();
     },
   };
 }
