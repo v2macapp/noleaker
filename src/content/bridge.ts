@@ -21,6 +21,27 @@ let name: string | null = null;
 
 let topHost: Promise<string> | undefined;
 
+// B10: an origin whose CSP blocked our blob worker is remembered (hashed), so on later page loads
+// its first worker starts natively instead of being lost. Without a prelude, main.ts never wraps.
+// shortcut: the first worker of the first visit is still lost, and the list only grows (capped);
+// a facade worker that buffers and replays would cover that.
+const CSP_KEY = 'blobBlockedOrigins';
+const originHash = scopedSeed('worker-csp', String(location.origin)).catch(() => '');
+let blobBlocked = false;
+addEventListener('securitypolicyviolation', (e) => {
+  if (
+    blobBlocked ||
+    !/^(worker|child|script)-src/.test(e.violatedDirective) ||
+    !String(e.blockedURI).startsWith('blob')
+  )
+    return;
+  blobBlocked = true;
+  void Promise.all([originHash, chrome.storage.local.get(CSP_KEY)]).then(([hash, r]) => {
+    const list = ((r[CSP_KEY] as string[] | undefined) ?? []).filter((h) => h !== hash);
+    return chrome.storage.local.set({ [CSP_KEY]: [...list, hash].slice(-200) });
+  });
+});
+
 /** The site the user sees: the top-level host, also from inside frames. */
 function topHostname(): Promise<string> {
   return (topHost ??= findTopHostname());
@@ -121,7 +142,10 @@ async function push(retry = false): Promise<void> {
   // Whitelist is needed only by the isolated bridge; never disclose it to page code.
   config.whitelist = [];
   rememberStartup(config);
-  const message: ConfigMessage = { config, prelude: config.active ? prelude : null };
+  const message: ConfigMessage = {
+    config,
+    prelude: config.active && !blobBlocked ? prelude : null,
+  };
   if (name) {
     acked = false;
     window.dispatchEvent(new CustomEvent(name, { detail: JSON.stringify(message) }));
@@ -141,9 +165,10 @@ window.addEventListener('pageshow', (e) => {
   if (e.persisted) push();
 });
 
-chrome.storage.local.get([CONFIG_KEY, PRELUDE_KEY]).then((r) => {
+chrome.storage.local.get([CONFIG_KEY, PRELUDE_KEY, CSP_KEY]).then(async (r) => {
   current = (r[CONFIG_KEY] as SpoofConfig | undefined) ?? INACTIVE_CONFIG;
   prelude = (r[PRELUDE_KEY] as string | undefined) ?? null;
+  blobBlocked ||= ((r[CSP_KEY] as string[] | undefined) ?? []).includes(await originHash);
   configLoaded = true;
   push();
 });

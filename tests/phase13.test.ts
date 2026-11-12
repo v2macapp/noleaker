@@ -402,6 +402,7 @@ describe.skipIf(!existsSync('dist/chrome/content/bridge.js'))(
       config?: unknown;
       hostname?: string;
       framed?: boolean;
+      stored?: Record<string, unknown>;
     }) {
       const target = new EventTarget();
       const timers: (() => void)[] = [];
@@ -413,6 +414,7 @@ describe.skipIf(!existsSync('dist/chrome/content/bridge.js'))(
       };
       win.window = win;
       const config = opts.config ?? buildSpoofConfig(live());
+      const stored = opts.stored ?? {};
       const ctx = createContext({
         ...win,
         CustomEvent,
@@ -425,13 +427,17 @@ describe.skipIf(!existsSync('dist/chrome/content/bridge.js'))(
           hostname: opts.hostname ?? 'news.example.com',
           pathname: '/',
           href: 'https://news.example.com/',
+          origin: 'https://news.example.com',
           ancestorOrigins: [],
         },
         navigator: { serviceWorker: { controller: {} } },
         performance: { getEntriesByType: () => [{ deliveryType: 'cache', type: 'navigate' }] },
         chrome: {
           storage: {
-            local: { get: async () => ({ [CONFIG_KEY]: config, workerPrelude: '/*p*/' }) },
+            local: {
+              get: async () => ({ [CONFIG_KEY]: config, workerPrelude: '/*p*/', ...stored }),
+              set: async (v: Record<string, unknown>) => void Object.assign(stored, v),
+            },
             onChanged: { addListener: () => undefined },
           },
           runtime: { sendMessage: async (m: unknown) => void sent.push(m) },
@@ -501,6 +507,32 @@ describe.skipIf(!existsSync('dist/chrome/content/bridge.js'))(
         await settle(env);
         expect(env.sent).toEqual([]);
       }
+    });
+    it('remembers an origin whose CSP blocked the blob worker and sends no prelude there (B10)', async () => {
+      const preludes = (env: ReturnType<typeof boot>) => {
+        const seen: unknown[] = [];
+        env.target.addEventListener('abc123', (e) =>
+          seen.push(JSON.parse((e as CustomEvent<string>).detail).prelude),
+        );
+        return seen;
+      };
+      const stored: Record<string, unknown> = {};
+      const first = boot({ mainPresent: true, stored });
+      const seen = preludes(first);
+      await settle(first);
+      expect(seen.at(-1)).toBe('/*p*/');
+      first.target.dispatchEvent(
+        Object.assign(new Event('securitypolicyviolation'), {
+          violatedDirective: 'worker-src',
+          blockedURI: 'blob',
+        }),
+      );
+      await new Promise((r) => setTimeout(r, 20));
+      expect(stored.blobBlockedOrigins).toHaveLength(1);
+      const next = boot({ mainPresent: true, stored });
+      const later = preludes(next);
+      await settle(next);
+      expect(later.at(-1)).toBeNull();
     });
   },
 );

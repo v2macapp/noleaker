@@ -22,7 +22,7 @@ Not audited: `src/leaktest/`, `src/audit/`, and the e2e suites.
 | [x]  | B7  | High     | Captcha          | New `about:blank` iframes disagree with their parent page          |
 | [x]  | B8  | High     | Captcha and leak | `Temporal` is not patched                                          |
 | [x]  | B9  | Medium   | Captcha          | Extension URLs show in error stacks unless Stealth is on           |
-| [ ]  | B10 | Medium   | Captcha, sites   | The first worker on a CSP site is lost                             |
+| [x]  | B10 | Medium   | Captcha, sites   | The first worker on a CSP site is lost                             |
 | [x]  | B11 | Medium   | Captcha, sites   | Workers on Trusted Types sites probably break (unconfirmed)        |
 | [x]  | B12 | Low      | Captcha          | The captcha provider list is short                                 |
 | [x]  | B13 | Medium   | Options          | Routing-list update fails after clicking a sidebar link            |
@@ -261,6 +261,11 @@ noleaker.`, and `enqueue` in `src/background/monitor.ts:24-32` turns the guard o
   then be a thrown error at construction for later workers and an `error` event for the first, which
   is what happens today; the fix mainly repairs Compatibility mode.
 - **Test:** e2e page with the CSP above; the first worker must answer.
+- **Status:** fixed in a smaller way. When a page's CSP blocks the blob worker, the bridge stores a
+  SHA-256 hash of the origin in `storage.local` (at most 200). On later loads of that origin it
+  sends no prelude, so the first worker uses the native path. Not done: the facade that buffers and
+  replays. Without it, the first worker of the first visit to such an origin is still lost. Strict
+  still refuses workers there.
 
 ### B11. Workers on Trusted Types sites probably break (unconfirmed)
 
