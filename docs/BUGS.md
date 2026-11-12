@@ -23,7 +23,7 @@ Not audited: `src/leaktest/`, `src/audit/`, and the e2e suites.
 | [x]  | B8  | High     | Captcha and leak | `Temporal` is not patched                                          |
 | [x]  | B9  | Medium   | Captcha          | Extension URLs show in error stacks unless Stealth is on           |
 | [ ]  | B10 | Medium   | Captcha, sites   | The first worker on a CSP site is lost                             |
-| [ ]  | B11 | Medium   | Captcha, sites   | Workers on Trusted Types sites probably break (unconfirmed)        |
+| [x]  | B11 | Medium   | Captcha, sites   | Workers on Trusted Types sites probably break (unconfirmed)        |
 | [x]  | B12 | Low      | Captcha          | The captcha provider list is short                                 |
 | [x]  | B13 | Medium   | Options          | Routing-list update fails after clicking a sidebar link            |
 | [x]  | B14 | Low      | Spoofing         | Dates with US zone abbreviations are shifted                       |
@@ -275,6 +275,10 @@ noleaker.`, and `enqueue` in `src/background/monitor.ts:24-32` turns the guard o
   either fall back to the native worker when the page enforces Trusted Types and the script is not a
   blob, or have the prelude create the URL through a policy the page's CSP allows (not possible in
   general). The fallback is the realistic fix.
+- **Status:** fallback done, without confirming the bug in a browser. When the page uses Trusted
+  Types (the script URL is a `TrustedScriptURL`, or a `default` policy exists) and the script is not
+  a page blob, the worker starts natively in Compatibility and is refused in Strict. Page blobs are
+  still embedded, so the e2e fixture's blob worker remains protected.
 
 ### B12. The captcha provider list is short
 

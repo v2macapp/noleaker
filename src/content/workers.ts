@@ -124,6 +124,10 @@ export function installWorkers(g: any, deps: WorkerDeps): { refresh(): void } | 
 
     const blob = blobs.get(url.href.replace(/#.*$/, ''));
     if (url.protocol === 'blob:' && !blob) return fallback();
+    // B11: the blob worker inherits the page's CSP, so under Trusted Types its plain-string
+    // importScripts() would throw and the worker would die. Only a page blob can be embedded.
+    if (!blob && (g.trustedTypes?.isScriptURL(scriptURL) || g.trustedTypes?.defaultPolicy))
+      return fallback();
     const init = JSON.stringify({ config, base: url.href, gpu: deps.gpu() });
     const source = `self.__noleaker__=${init};\n${prelude}\n;`;
     // Blob imports can violate script-src even when worker-src allows blob workers.

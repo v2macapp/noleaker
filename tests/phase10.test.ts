@@ -300,6 +300,19 @@ describe('Worker wrapper (page side)', () => {
       else expect(env.run('new Worker(trusted).url === trusted')).toBe(true);
     }
   });
+  it('leaves script URLs native on Trusted Types pages, blocked in Strict (B11)', () => {
+    for (const strict of [false, true]) {
+      const env = make({ ...config(), strict });
+      env.g.DOMException = DOMException;
+      env.run(`const trusted = new TrustedTypePolicy(() => true).createScriptURL("/w.js");`);
+      if (strict) expect(() => env.run('new Worker(trusted)')).toThrow('cannot be protected');
+      else expect(env.run('new Worker(trusted).url === trusted')).toBe(true);
+    }
+    const env = make();
+    env.run('trustedTypes.defaultPolicy = {}');
+    expect(started(env, 'new Worker("w.js")').url).toBe('w.js');
+    expect(env.run('created.length')).toBe(0);
+  });
   it('does not wrap unknown or revoked blob URLs and blocks them in Strict', () => {
     const env = make();
     env.run(`
